@@ -1,0 +1,114 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm type-check)",
+      "Bash(pnpm test)",
+      "Bash(pnpm test:integration)",
+      "Bash(pnpm test:rls)",
+      "Bash(pnpm test:watch)",
+      "Bash(pnpm test:coverage)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm build)",
+      "Bash(pnpm start)",
+      "Bash(pnpm verify)",
+      "Bash(pnpm format)",
+      "Bash(pnpm format:check)",
+      "Bash(pnpm install)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm dlx *)",
+      "Bash(pnpm db:generate)",
+      "Bash(pnpm db:migrate)",
+      "Bash(pnpm db:seed)",
+      "Bash(pnpm db:studio)",
+      "Bash(npx prisma migrate dev *)",
+      "Bash(npx prisma generate)",
+      "Bash(npx prisma db seed)",
+      "Bash(npx prisma studio)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git stash *)",
+      "Bash(git branch *)",
+      "Bash(git checkout -b *)",
+      "Bash(gitleaks detect *)",
+      "Bash(semgrep *)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(git push --force *)",
+      "Bash(git reset --hard *)",
+      "Bash(git rebase -i *)",
+      "Bash(rm -rf *)",
+      "Bash(rm -r *)",
+      "Bash(sudo *)",
+      "Bash(npm install -g *)",
+      "Bash(pnpm install -g *)",
+      "Bash(npx prisma migrate reset *)",
+      "Bash(npx prisma migrate deploy *)",
+      "Bash(pnpm db:reset)",
+      "Edit(.env)",
+      "Edit(.env.local)",
+      "Edit(.env.production)",
+      "Edit(.github/workflows/**)",
+      "Edit(prisma/migrations/**)",
+      "Write(.env*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '═══ telefonia_tenant (portal) ═══' && echo 'Specs canônicos da plataforma: /root/telefonia-ia/docs/{ontologia,seguranca}.md' && echo 'ADRs cross-repo: /root/telefonia-ia/.claude/decisions.md' && echo 'ADRs portal: .claude/decisions.md' && echo 'Antes de commit: pnpm verify'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/root/portal/.claude/hooks/pre-tool-use-bash.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/root/portal/.claude/hooks/post-tool-use-record.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/root/portal/.claude/hooks/pre-file-edit-typecheck.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Sessão encerrando. Lembretes: (1) ADR nova? registrar em .claude/decisions.md (portal) ou /root/telefonia-ia/.claude/decisions.md (cross-repo); (2) lições aprendidas em CLAUDE.md §pitfalls; (3) commit + push manual quando confortável.'"
+          }
+        ]
+      }
+    ]
+  }
+}
