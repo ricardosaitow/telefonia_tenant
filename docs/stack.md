@@ -2,6 +2,8 @@
 
 Versão concreta da decisão D001 (`/root/telefonia-ia/.claude/decisions.md`). Lista as bibliotecas exatas, versões-alvo, padrões de uso e estrutura de pastas. Documento canônico do bootstrap em `portal/`.
 
+> **Atualização 2026-04-27 — Versões realmente instaladas no bootstrap:** o bootstrap usou `@latest` de cada pacote, resultando em versões major acima dos alvos originalmente listados na tabela abaixo. Detalhe e rationale em `.claude/decisions.md` ADR P001. Versões reais conforme `package.json`: **Next 16.2.4, React 19.2.4, Tailwind 4.2.4** (CSS-first, sem `tailwind.config.ts`), **Prisma 7.8, Zod 4.3, Vitest 4.1, next-intl 4.9, date-fns 4.1, pino 10.3, pnpm 10.33**. As **escolhas arquiteturais** (Prisma > Drizzle, Conform > RHF, Vitest > Jest, etc.) seguem todas válidas; só as versões avançaram. Confiar no `AGENTS.md` (gerado pelo create-next-app) pra cuidados específicos do Next 16+.
+
 ## 1. Princípios da stack
 
 - **Estável > novo**. Cada lib escolhida tem >2 anos de uso amplo, mantida ativamente, ecossistema saudável.

@@ -4,18 +4,22 @@ Portal SaaS multi-tenant em Next.js. Control plane da plataforma telefonia-ia: a
 
 **Repo irmão:** `/root/telefonia-ia/` é o **data plane** (bridge-ia, wa-bridge, freepbx, mailer, scripts) + **specs canônicos da plataforma**. SEMPRE consultar lá pra modelo de dados, segurança e ADRs cross-repo. Não duplicar.
 
-## Stack (ver `docs/stack.md` pra detalhe completo)
+## Stack (versões realmente instaladas — ver `docs/stack.md` + ADR P001 em `.claude/decisions.md` pra rationale da deriva)
 
-- Runtime: Node 22 LTS, pnpm 9+
-- Framework: Next.js 15 (App Router), TypeScript strict
-- Auth: Auth.js v5 + Prisma adapter + argon2id + TOTP (otpauth) + TrustedDevice
-- DB: Postgres 16 + Prisma 5 + RLS via middleware tenant
-- Validação: Zod + next-safe-action + Conform
-- UI: Tailwind + shadcn/ui (Radix) + Lucide
-- i18n: next-intl + MessageTemplate custom
-- Logging: pino com redaction
-- Secrets: @infisical/sdk
-- Testes: Vitest + testcontainers/postgresql
+- Runtime: **Node 22.22.2**, **pnpm 10.33.2**
+- Framework: **Next.js 16.2.4** (App Router), **React 19.2.4**, TypeScript strict
+- Auth: Auth.js v5 (`next-auth@5.0.0-beta.31`) + `@auth/prisma-adapter` + `@node-rs/argon2` + `otpauth` + `jose`
+- DB: Postgres 16 + **Prisma 7.8** + RLS via middleware tenant (cliente gerado em `src/generated/prisma`)
+- Validação: **Zod 4.3** + `next-safe-action@8` + `@conform-to/react` + `@conform-to/zod`
+- UI: **Tailwind CSS 4.2** (CSS-first, `@theme` directive em `globals.css`, sem `tailwind.config.ts`) + shadcn/ui (Radix) + Lucide
+- i18n: **next-intl 4.9** + MessageTemplate custom
+- Logging: **pino 10.3** com redaction
+- Secrets: `@infisical/sdk@5`
+- Testes: **Vitest 4.1** + `@testcontainers/postgresql`
+- Email: Resend + React Email
+- Datas: `date-fns@4` + `date-fns-tz@3`
+
+**Atenção (Next 16):** o `AGENTS.md` na raiz instrui a ler `node_modules/next/dist/docs/` antes de usar APIs do Next.js, porque Next 16 tem breaking changes vs versões anteriores. Confiar no doc local, não em memória.
 
 ## Documentos canônicos da plataforma (ler antes de feature significativa)
 
@@ -97,8 +101,21 @@ Mesmas regras platform-wide que valem em `/root/telefonia-ia/.claude/CLAUDE.md`.
 
 ## Estado atual do projeto (2026-04-27)
 
-- Repo recém-criado.
-- Nenhuma linha de código Next.js escrita ainda.
-- `docs/stack.md` é o spec do bootstrap.
-- ADRs platform-wide já registradas em `/root/telefonia-ia/.claude/decisions.md` (D001-D012).
-- Próximo passo: bootstrap Next.js conforme `docs/stack.md` §6.
+- ✓ Repo criado com remote `git@github-telefonia:ricardosaitow/telefonia_tenant.git` (push pendente — deploy key precisa ser adicionada nesse repo).
+- ✓ `.claude/` setup completo + `docs/stack.md` (com nota de deriva de versão).
+- ✓ Bootstrap Next.js feito (`pnpm dlx create-next-app`).
+- ✓ Todas as deps de `docs/stack.md` §6 instaladas (auth, prisma, zod, conform, pino, infisical, lucide, next-intl, resend, date-fns, vitest, testcontainers, simple-git-hooks, prettier, eslint plugins).
+- ✓ `prisma init` rodado — `prisma/schema.prisma` esqueleto criado.
+- ✓ `package.json` com scripts canônicos + simple-git-hooks + lint-staged + commitlint.
+- ⚠️ ADR P001 registrada em `.claude/decisions.md`: deriva de versão (Next 16 em vez de 15, TW 4 em vez de 3, etc.) — bootstrap usou latest stable; spec atualizada.
+
+**Próximos passos planejados:**
+1. Configurar Vitest projects (unit/integration/rls).
+2. Configurar ESLint flat com plugin-security e import-sort.
+3. Configurar Prettier.
+4. Inicializar shadcn/ui (modo TW4).
+5. Escrever primeiras models no `prisma/schema.prisma` (Account, Tenant, TenantMembership) com RLS via subagent `prisma-migrator`.
+6. Configurar middleware tenant (`lib/db/tenant-context.ts`) e helper `asTenant` (`tests/helpers/tenants.ts`).
+7. Suite RLS inicial (cobre Account/Tenant/Membership) — primeiro teste anti-cross-tenant rodando.
+8. NextAuth com Credentials + argon2 (sem MFA ainda).
+9. Primeiro fluxo end-to-end validável: signup → login → tela de seleção de tenant.
