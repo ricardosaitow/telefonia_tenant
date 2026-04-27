@@ -1,0 +1,18 @@
+.next/
+out/
+build/
+node_modules/
+src/generated/
+coverage/
+playwright-report/
+test-results/
+pnpm-lock.yaml
+
+# Claude Code config — formato dirigido, não passa pelo prettier
+.claude/
+
+# Gerado pelo create-next-app, manutenção via Next.js
+AGENTS.md
+
+# Migrations Prisma têm template SQL próprio
+prisma/migrations/

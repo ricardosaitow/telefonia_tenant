@@ -14,37 +14,37 @@ Versão concreta da decisão D001 (`/root/telefonia-ia/.claude/decisions.md`). L
 
 ## 2. Stack canônica (resumo)
 
-| Camada | Escolha | Versão alvo |
-|---|---|---|
-| Runtime | Node.js | 22 LTS |
-| Package manager | pnpm | 9+ |
-| Framework | Next.js (App Router) | 15.x |
-| Linguagem | TypeScript strict | 5.x |
-| ORM | Prisma | 5.x |
-| Banco | PostgreSQL | 16 (mínimo 15) |
-| Auth | Auth.js (NextAuth v5) + adapter Prisma | 5.x |
-| MFA TOTP | otpauth | 9.x |
-| Senha hash | @node-rs/argon2 | latest |
-| Server Actions wrapper | next-safe-action | 7.x |
-| Validação | Zod | 3.x |
-| Forms | Conform | 1.x |
-| UI | Tailwind CSS + shadcn/ui (Radix) | TW 3.x |
-| Ícones | Lucide React | latest |
-| i18n | next-intl | 3.x |
-| Logging | pino + pino-pretty (dev) | 9.x |
-| Secrets | @infisical/sdk | latest |
-| Email transacional | Resend + React Email | latest |
-| Datas | date-fns + date-fns-tz | 3.x / 3.x |
-| Testes | Vitest + @testcontainers/postgresql | 2.x / latest |
-| E2E | Playwright | 1.x (V1.5) |
-| Lint | ESLint + typescript-eslint + simple-import-sort + eslint-plugin-security | 9.x |
-| Format | Prettier + prettier-plugin-tailwindcss | 3.x |
-| Pre-commit | simple-git-hooks + lint-staged | latest |
-| Secrets scan | gitleaks | binário |
-| SAST | Semgrep | binário |
-| Observability (V1.5) | OpenTelemetry SDK | latest |
-| Rate limit (V1.5) | upstash/ratelimit + Redis | latest |
-| Antivírus upload (V1.5) | clamav-client + ClamAV daemon | latest |
+| Camada                  | Escolha                                                                  | Versão alvo    |
+| ----------------------- | ------------------------------------------------------------------------ | -------------- |
+| Runtime                 | Node.js                                                                  | 22 LTS         |
+| Package manager         | pnpm                                                                     | 9+             |
+| Framework               | Next.js (App Router)                                                     | 15.x           |
+| Linguagem               | TypeScript strict                                                        | 5.x            |
+| ORM                     | Prisma                                                                   | 5.x            |
+| Banco                   | PostgreSQL                                                               | 16 (mínimo 15) |
+| Auth                    | Auth.js (NextAuth v5) + adapter Prisma                                   | 5.x            |
+| MFA TOTP                | otpauth                                                                  | 9.x            |
+| Senha hash              | @node-rs/argon2                                                          | latest         |
+| Server Actions wrapper  | next-safe-action                                                         | 7.x            |
+| Validação               | Zod                                                                      | 3.x            |
+| Forms                   | Conform                                                                  | 1.x            |
+| UI                      | Tailwind CSS + shadcn/ui (Radix)                                         | TW 3.x         |
+| Ícones                  | Lucide React                                                             | latest         |
+| i18n                    | next-intl                                                                | 3.x            |
+| Logging                 | pino + pino-pretty (dev)                                                 | 9.x            |
+| Secrets                 | @infisical/sdk                                                           | latest         |
+| Email transacional      | Resend + React Email                                                     | latest         |
+| Datas                   | date-fns + date-fns-tz                                                   | 3.x / 3.x      |
+| Testes                  | Vitest + @testcontainers/postgresql                                      | 2.x / latest   |
+| E2E                     | Playwright                                                               | 1.x (V1.5)     |
+| Lint                    | ESLint + typescript-eslint + simple-import-sort + eslint-plugin-security | 9.x            |
+| Format                  | Prettier + prettier-plugin-tailwindcss                                   | 3.x            |
+| Pre-commit              | simple-git-hooks + lint-staged                                           | latest         |
+| Secrets scan            | gitleaks                                                                 | binário        |
+| SAST                    | Semgrep                                                                  | binário        |
+| Observability (V1.5)    | OpenTelemetry SDK                                                        | latest         |
+| Rate limit (V1.5)       | upstash/ratelimit + Redis                                                | latest         |
+| Antivírus upload (V1.5) | clamav-client + ClamAV daemon                                            | latest         |
 
 ## 3. Estrutura de pastas final (alvo)
 
@@ -463,6 +463,7 @@ Setup mínimo pra começar:
 6. Primeiro commit: setup base validável.
 
 Em paralelo, ainda nesta etapa "antes do código":
+
 - **Decisão de PBX** (FreePBX hackado vs FusionPBX vs Asterisk puro) — com a ontologia em mãos, agora é informada. Vira `docs/pbx.md`. Pode ficar pra depois do bootstrap inicial sem prejudicar.
 - **Wireframe das telas** principais (login, MFA, seleção de tenant, dashboard, agentes). Baixa fidelidade. Vira `docs/wireframes.md` ou Figma público.
 

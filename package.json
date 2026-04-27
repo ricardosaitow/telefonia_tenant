@@ -24,12 +24,12 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "secrets:check": "gitleaks detect --source . --verbose",
+    "secrets:check": "gitleaks dir --redact --verbose",
     "verify": "pnpm lint && pnpm type-check && pnpm test:rls",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm lint-staged && (gitleaks detect --staged --redact || (echo 'gitleaks: segredo detectado, abortando commit' && exit 1))",
+    "pre-commit": "pnpm lint-staged && (gitleaks git --staged --redact --no-banner || (echo 'gitleaks: segredo detectado, abortando commit' && exit 1))",
     "pre-push": "pnpm type-check && pnpm test:rls",
     "commit-msg": "pnpm commitlint --edit \"$1\""
   },
