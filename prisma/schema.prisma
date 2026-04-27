@@ -1,13 +1,137 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Schema do portal — control plane SaaS multi-tenant.
+// Canônico do modelo de dados: /root/telefonia-ia/docs/ontologia.md
+// ADRs relevantes: D002 (RLS), D004 (Account global ↔ Membership N:N), D008 (MFA), D009 (segredos só refs).
+//
+// Convenções:
+//   - PascalCase nas models, camelCase nos campos.
+//   - @map("snake_case") em todos os campos; @@map em snake_case plural.
+//   - PK: UUIDv7 (ordenado, melhor pra B-tree e cursor pagination).
+//   - Timestamps: createdAt/updatedAt em todas as entidades.
+//   - Toda tabela com tenantId: @@index([tenantId]) + RLS via SQL na migration (D002).
 
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
+// Prisma 7: `url` no schema foi removida. URL de migrate vive em prisma.config.ts;
+// runtime usa adapter (@prisma/adapter-pg) com URL passada ao PrismaClient.
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Account — identidade global. NÃO pertence a tenant (D004).
+// Email único globalmente; mesma Account pode ter N TenantMembership.
+// MFA campos preparados (D008): habilitação real vem com fluxo NextAuth.
+// Segredos (mfa_*_ref) são paths Infisical, NUNCA o valor (D009).
+// ---------------------------------------------------------------------------
+model Account {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  email              String        @unique
+  passwordHash       String        @map("password_hash")
+  nome               String
+  locale             String        @default("pt-BR")
+  status             AccountStatus @default(active)
+
+  // MFA — refs Infisical, sem valor em claro.
+  mfaEnabled         Boolean       @default(false) @map("mfa_enabled")
+  mfaSecretRef       String?       @map("mfa_secret_ref")
+  mfaBackupCodesRef  String?       @map("mfa_backup_codes_ref")
+
+  // Lockout / brute-force.
+  failedLoginCount   Int           @default(0) @map("failed_login_count")
+  lockoutUntil       DateTime?     @map("lockout_until") @db.Timestamptz(6)
+  lastLoginAt        DateTime?     @map("last_login_at") @db.Timestamptz(6)
+
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  memberships        TenantMembership[]
+
+  @@map("accounts")
+}
+
+enum AccountStatus {
+  active
+  disabled
+  locked
+
+  @@map("account_status")
+}
+
+// ---------------------------------------------------------------------------
+// Tenant — empresa cliente. RLS aplicada no `id` (não há coluna `tenant_id` aqui).
+// Listagem pré-tenant (lookup de memberships do user logado) é feita por role
+// administrativo controlado — runtime padrão NUNCA enxerga tenants alheios.
+// ---------------------------------------------------------------------------
+model Tenant {
+  id                    String       @id @default(uuid(7)) @db.Uuid
+  slug                  String       @unique
+  nomeFantasia          String       @map("nome_fantasia")
+  razaoSocial           String?      @map("razao_social")
+  cnpj                  String?      @unique
+  dominioEmailPrincipal String?      @map("dominio_email_principal")
+  defaultLocale         String       @default("pt-BR") @map("default_locale")
+  status                TenantStatus @default(trial)
+
+  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  memberships           TenantMembership[]
+
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  trial
+  active
+  suspended
+  canceled
+
+  @@map("tenant_status")
+}
+
+// ---------------------------------------------------------------------------
+// TenantMembership — vínculo Account ↔ Tenant (M:N). Carrega papel global.
+// RLS por tenant_id. Papéis por departamento ficam em `membership_department_role` (V1.x).
+// ---------------------------------------------------------------------------
+model TenantMembership {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  tenantId      String           @map("tenant_id") @db.Uuid
+  accountId     String           @map("account_id") @db.Uuid
+  status        MembershipStatus @default(invited)
+  globalRole    MembershipRole   @map("global_role")
+
+  joinedAt      DateTime?        @map("joined_at") @db.Timestamptz(6)
+  lastActiveAt  DateTime?        @map("last_active_at") @db.Timestamptz(6)
+
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account       Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, accountId])
+  @@index([tenantId])
+  @@index([accountId])
+  @@map("tenant_memberships")
+}
+
+enum MembershipStatus {
+  invited
+  active
+  disabled
+
+  @@map("membership_status")
+}
+
+enum MembershipRole {
+  tenant_owner
+  tenant_admin
+  department_supervisor
+  operator
+  auditor
+
+  @@map("membership_role")
 }

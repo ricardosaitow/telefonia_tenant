@@ -42,7 +42,9 @@ export default defineConfig({
           globals: false,
           // Sequencial por padrão pra não brigar pelo container Postgres compartilhado.
           fileParallelism: false,
-          // setupFiles: ["tests/helpers/db-setup.ts"], // descomentar quando o helper existir
+          // globalSetup roda 1x por suite (sobe container + aplica migrations);
+          // setupFiles rodaria por arquivo, custo proibitivo (5-10s/file).
+          globalSetup: ["tests/helpers/db-setup.ts"],
         },
       },
       {
@@ -53,7 +55,7 @@ export default defineConfig({
           environment: "node",
           globals: false,
           fileParallelism: false,
-          // setupFiles: ["tests/helpers/db-setup.ts"], // descomentar quando o helper existir
+          globalSetup: ["tests/helpers/db-setup.ts"],
         },
       },
     ],
