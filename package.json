@@ -25,7 +25,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "secrets:check": "gitleaks dir --redact --verbose",
-    "verify": "pnpm lint && pnpm type-check && pnpm test:rls",
+    "verify": "pnpm lint && pnpm type-check && pnpm test:integration && pnpm test:rls",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {

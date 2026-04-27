@@ -48,6 +48,7 @@ model Account {
   updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   memberships        TenantMembership[]
+  sessions           Session[]
 
   @@map("accounts")
 }
@@ -134,4 +135,31 @@ enum MembershipRole {
   auditor
 
   @@map("membership_role")
+}
+
+// ---------------------------------------------------------------------------
+// Session — sessão de Account (D008/seguranca.md §6.2). Strategy híbrida:
+// NextAuth força `jwt` quando há provider Credentials, mas guardamos a sessão
+// no DB pra preservar revogação imediata. O JWT carrega só `sessionToken`
+// opaco; callback `session` valida contra esta tabela a cada request.
+// SEM tenantId → SEM RLS. Sessão é por-Account, atravessa tenants (a seleção
+// de tenant ativo vive no JWT/cookie separado, vem em 8c).
+// ---------------------------------------------------------------------------
+model Session {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  sessionToken String    @unique @map("session_token")
+  accountId    String    @map("account_id") @db.Uuid
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(6)
+  ip           String?
+  userAgent    String?   @map("user_agent")
+
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("sessions")
 }
