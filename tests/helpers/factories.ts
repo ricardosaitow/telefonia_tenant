@@ -20,6 +20,7 @@ import type {
   Channel,
   Department,
   KnowledgeSource,
+  MessageTemplate,
   RoutingRule,
   Tenant,
   TenantMembership,
@@ -276,6 +277,33 @@ export async function makeAgentTool(input: MakeAgentToolInput): Promise<AgentToo
         tenantId: input.tenantId,
         agentId: input.agentId,
         toolKey: input.toolKey ?? `tool_${id.slice(0, 8)}`,
+      },
+    }),
+  );
+}
+
+export interface MakeMessageTemplateInput {
+  tenantId: string;
+  scope?: "tenant" | "department" | "channel" | "routing_rule" | "agent";
+  scopeRefId?: string;
+  key?: string;
+  locale?: string;
+  content?: string;
+}
+
+export async function makeMessageTemplate(
+  input: MakeMessageTemplateInput,
+): Promise<MessageTemplate> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.messageTemplate.create({
+      data: {
+        tenantId: input.tenantId,
+        scope: input.scope ?? "tenant",
+        scopeRefId: input.scopeRefId ?? null,
+        key: input.key ?? `template_${id.slice(0, 8)}`,
+        locale: input.locale ?? "pt-BR",
+        content: input.content ?? "Olá!",
       },
     }),
   );

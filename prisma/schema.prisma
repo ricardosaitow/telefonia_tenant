@@ -92,6 +92,7 @@ model Tenant {
   knowledgeSources      KnowledgeSource[]
   agentKnowledge        AgentKnowledge[]
   agentTools            AgentTool[]
+  messageTemplates      MessageTemplate[]
 
   @@map("tenants")
 }
@@ -605,4 +606,54 @@ model AgentTool {
   @@unique([agentId, toolKey])
   @@index([tenantId])
   @@map("agent_tools")
+}
+
+// ---------------------------------------------------------------------------
+// MessageTemplate — mensagens fixas configuráveis pelo cliente, com versão
+// por idioma (Ontologia §13). Resolução em runtime: cascata `agent > department
+// > tenant` no `key` mais específico do `locale` da conversa, com fallback
+// pro `Tenant.default_locale`.
+//
+// `scopeRefId` é nullable se scope=tenant; pra demais scopes aponta pra ID do
+// respectivo (sem FK formal — depende do scope).
+//
+// V1 sem versionamento de template (sobrescreve). Se virar dor, replica pattern
+// do Agent (draft + version) numa V2.
+//
+// RLS por tenant_id (D002).
+// ---------------------------------------------------------------------------
+model MessageTemplate {
+  id          String                @id @default(uuid(7)) @db.Uuid
+  tenantId    String                @map("tenant_id") @db.Uuid
+
+  scope       MessageTemplateScope
+  scopeRefId  String?               @map("scope_ref_id") @db.Uuid
+
+  key         String                // ex: "out_of_hours", "ivr_welcome", "transfer_handoff"
+  locale      String                // "pt-BR", "en-US", "es-ES"
+  content     String
+
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Unicidade: 1 template por (escopo, key, locale) dentro do tenant.
+  // scopeRefId pode ser null (scope=tenant) → Postgres trata NULL como
+  // distinto, então 2 rows com mesmo (tenantId, scope=tenant, key, locale)
+  // PASSARIAM. Validação no app pra esse caso (raro).
+  @@unique([tenantId, scope, scopeRefId, key, locale])
+  @@index([tenantId])
+  @@index([scope, scopeRefId])
+  @@map("message_templates")
+}
+
+enum MessageTemplateScope {
+  tenant
+  department
+  channel
+  routing_rule
+  agent
+
+  @@map("message_template_scope")
 }

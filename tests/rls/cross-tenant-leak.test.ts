@@ -21,6 +21,7 @@
  *   - knowledge_sources  (RLS no `tenant_id`)
  *   - agent_knowledge    (RLS no `tenant_id` denormalizado)
  *   - agent_tools        (RLS no `tenant_id`)
+ *   - message_templates  (RLS no `tenant_id`)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
  * sessions e per-account, sem tenant_id -- nao entra aqui.
@@ -38,6 +39,7 @@ import type {
   Channel,
   Department,
   KnowledgeSource,
+  MessageTemplate,
   RoutingRule,
   Tenant,
   TenantMembership,
@@ -54,6 +56,7 @@ import {
   makeDepartment,
   makeKnowledgeSource,
   makeMembership,
+  makeMessageTemplate,
   makeRoutingRule,
   makeTenant,
 } from "../helpers/factories";
@@ -74,6 +77,7 @@ let routingRuleA: RoutingRule;
 let knowledgeSourceA: KnowledgeSource;
 let agentKnowledgeA: AgentKnowledge;
 let agentToolA: AgentTool;
+let messageTemplateA: MessageTemplate;
 
 beforeAll(async () => {
   // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
@@ -122,14 +126,18 @@ beforeAll(async () => {
     knowledgeSourceId: knowledgeSourceA.id,
   });
   agentToolA = await makeAgentTool({ tenantId: tenantA.id, agentId: agentA.id });
+  messageTemplateA = await makeMessageTemplate({ tenantId: tenantA.id });
 });
 
 afterAll(async () => {
   // Limpa pra nao poluir runs subsequentes do mesmo container.
-  // Ordem FK (filhos primeiro): agent_tools, agent_knowledge -> knowledge_sources
-  //         -> routing_rules -> audit_logs -> agent_versions -> agents
-  //         -> departments -> channels -> memberships -> tenants -> accounts.
+  // Ordem FK (filhos primeiro): message_templates, agent_tools, agent_knowledge
+  //         -> knowledge_sources -> routing_rules -> audit_logs -> agent_versions
+  //         -> agents -> departments -> channels -> memberships -> tenants -> accounts.
   await migratorPrisma().$transaction(async (tx) => {
+    await tx.messageTemplate.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
     await tx.agentTool.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.agentKnowledge.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.knowledgeSource.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
@@ -538,6 +546,42 @@ describe("RLS: agent_tools", () => {
   });
 });
 
+describe("RLS: message_templates", () => {
+  it("tenant B nao enxerga message_template do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.messageTemplate.findUnique({ where: { id: messageTemplateA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany message_template do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.messageTemplate.updateMany({
+        where: { id: messageTemplateA.id },
+        data: { content: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().messageTemplate.findUnique({
+      where: { id: messageTemplateA.id },
+    });
+    expect(reread?.content).toBe(messageTemplateA.content);
+  });
+
+  it("tenant B nao consegue deleteMany message_template do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.messageTemplate.deleteMany({ where: { id: messageTemplateA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().messageTemplate.findUnique({
+      where: { id: messageTemplateA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
     const list = await appPrisma().tenant.findMany({
@@ -599,6 +643,13 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
 
   it("sem app.current_tenant setado, agent_tools devolve 0 rows", async () => {
     const list = await appPrisma().agentTool.findMany({ where: { id: agentToolA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, message_templates devolve 0 rows", async () => {
+    const list = await appPrisma().messageTemplate.findMany({
+      where: { id: messageTemplateA.id },
+    });
     expect(list).toEqual([]);
   });
 });
