@@ -68,7 +68,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/agents",
         icon: <Bot />,
         capability: "agent:manage",
-        comingSoon: true,
       },
       {
         label: "Conhecimento",
