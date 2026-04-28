@@ -50,7 +50,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/conversations",
         icon: <MessagesSquare />,
         capability: "conversation:view",
-        comingSoon: true,
       },
     ],
   },
