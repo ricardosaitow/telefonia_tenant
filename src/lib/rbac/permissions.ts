@@ -16,16 +16,42 @@ export type Capability =
   | "agent:manage"
   | "knowledge:manage"
   | "channel:manage"
+  | "routing:manage"
   | "integration:manage"
+  | "template:manage"
+  | "conversation:view"
+  | "audit:view"
+  | "usage:view"
+  | "tenant:settings"
   | "tenant:manage_billing"
   | "tenant:manage_members";
+
+const ALL_ROLES: MembershipRole[] = [
+  "tenant_owner",
+  "tenant_admin",
+  "department_supervisor",
+  "operator",
+  "auditor",
+];
+const NON_OPERATOR: MembershipRole[] = [
+  "tenant_owner",
+  "tenant_admin",
+  "department_supervisor",
+  "auditor",
+];
 
 const ALLOW: Record<Capability, MembershipRole[]> = {
   "department:manage": ["tenant_owner", "tenant_admin"],
   "agent:manage": ["tenant_owner", "tenant_admin", "department_supervisor"],
   "knowledge:manage": ["tenant_owner", "tenant_admin", "department_supervisor"],
   "channel:manage": ["tenant_owner", "tenant_admin"],
+  "routing:manage": ["tenant_owner", "tenant_admin"],
   "integration:manage": ["tenant_owner", "tenant_admin"],
+  "template:manage": ["tenant_owner", "tenant_admin", "department_supervisor"],
+  "conversation:view": ALL_ROLES,
+  "audit:view": NON_OPERATOR,
+  "usage:view": NON_OPERATOR,
+  "tenant:settings": ["tenant_owner", "tenant_admin"],
   "tenant:manage_billing": ["tenant_owner"],
   "tenant:manage_members": ["tenant_owner", "tenant_admin"],
 };
