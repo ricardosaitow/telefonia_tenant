@@ -8,8 +8,10 @@ import { can } from "@/lib/rbac/permissions";
 
 import { AgentForm } from "../agent-form";
 import { DeleteAgentButton } from "./delete-button";
+import { KnowledgeSection } from "./knowledge-section";
 import { PauseAgentButton } from "./pause-button";
 import { PublishAgentButton } from "./publish-button";
+import { ToolsSection } from "./tools-section";
 import { VersionHistory } from "./version-history";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -82,6 +84,10 @@ export default async function EditAgentPage({ params }: EditAgentPageProps) {
           }}
         />
       </Card>
+
+      <KnowledgeSection activeTenantId={ctx.activeTenantId} agentId={agent.id} canManage />
+
+      <ToolsSection activeTenantId={ctx.activeTenantId} agentId={agent.id} canManage />
 
       <VersionHistory
         agentId={agent.id}
