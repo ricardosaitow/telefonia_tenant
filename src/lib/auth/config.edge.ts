@@ -13,11 +13,49 @@ import type { NextAuthConfig } from "next-auth";
  * Os redirects abaixo são:
  *  - rota protegida (/tenants, /dashboard, etc) sem JWT → /login
  *  - /login ou /signup com JWT → / (que decide /tenants ou /dashboard)
+ *
+ * **Cookies** (seguranca.md §6.2): em produção (`NODE_ENV=production`)
+ * usamos `__Host-` prefix — exige Secure + Path=/ + sem Domain. Em dev,
+ * sem prefix porque http://localhost. SameSite=Lax + HttpOnly em ambos.
  */
+const isProd = process.env.NODE_ENV === "production";
+const sessionCookieName = isProd ? "__Host-authjs.session-token" : "authjs.session-token";
+const csrfCookieName = isProd ? "__Host-authjs.csrf-token" : "authjs.csrf-token";
+const callbackCookieName = isProd ? "__Host-authjs.callback-url" : "authjs.callback-url";
+
 export const authConfigEdge: NextAuthConfig = {
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [],
+  cookies: {
+    sessionToken: {
+      name: sessionCookieName,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: isProd,
+      },
+    },
+    csrfToken: {
+      name: csrfCookieName,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: isProd,
+      },
+    },
+    callbackUrl: {
+      name: callbackCookieName,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: isProd,
+      },
+    },
+  },
   callbacks: {
     authorized({ auth, request }) {
       const { nextUrl } = request;
