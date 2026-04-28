@@ -78,14 +78,14 @@ Classes Tailwind disponíveis: `font-sans` (Inter), `font-display` (Plus Jakarta
 
 ## 5. Radius
 
-| Token          | Valor                     | Uso                                                    |
-| -------------- | ------------------------- | ------------------------------------------------------ |
-| `--radius-sm`  | `6px`                     | Badges, pills compactos                                |
-| `--radius-md`  | `10px`                    | **Default** — buttons (não-default), inputs, dropdowns |
-| `--radius-lg`  | `14px`                    | Cards, alerts, popovers                                |
-| `--radius-xl`  | `18px`                    | Dialogs                                                |
-| `--radius-2xl` | `24px`                    | Hero cards, command palette                            |
-| Pill           | `9999px` (`rounded-full`) | Button variant default (Pekiart pill)                  |
+| Token          | Valor        | Uso                                                                              |
+| -------------- | ------------ | -------------------------------------------------------------------------------- |
+| `--radius-sm`  | `6px`        | Badges, status pills compactos                                                   |
+| `--radius-md`  | `10px`       | **Default** — buttons, inputs, dropdowns, avatares                               |
+| `--radius-lg`  | `14px`       | Cards, alerts, popovers                                                          |
+| `--radius-xl`  | `18px`       | Dialogs                                                                          |
+| `--radius-2xl` | `24px`       | Hero cards, command palette                                                      |
+| ~~Pill~~       | ~~`9999px`~~ | **Banido** em UI elements (P004). Só status dots / spinners em `components/ui/`. |
 
 ## 6. Sombras e glow
 
@@ -137,13 +137,13 @@ Linear-style:
 
 Inventário atual (refatorados pra tokens Pekiart):
 
-| Componente | Variants                                                                                     | Notas                                     |
-| ---------- | -------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `Button`   | `default` (pill+glow), `outline` (glass border), `secondary`, `ghost`, `destructive`, `link` | font-display, sizes xs/sm/default/lg/icon |
-| `Card`     | `solid` (default), `glass`                                                                   | paddings: none/sm/default/lg              |
-| `Input`    | —                                                                                            | h-10, glass bg, focus glow                |
-| `Label`    | —                                                                                            | font-medium, text-foreground              |
-| `Alert`    | `default`, `destructive`, `success`                                                          | glass-panel + border-l accent             |
+| Componente | Variants                                                                                           | Notas                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `Button`   | `default` (rounded-md+glow), `outline` (glass border), `secondary`, `ghost`, `destructive`, `link` | font-display, sizes xs/sm/default/lg/icon. **Sem pill** (P004). |
+| `Card`     | `solid` (default), `glass`                                                                         | paddings: none/sm/default/lg                                    |
+| `Input`    | —                                                                                                  | h-10, glass bg, focus glow                                      |
+| `Label`    | —                                                                                                  | font-medium, text-foreground                                    |
+| `Alert`    | `default`, `destructive`, `success`                                                                | glass-panel + border-l accent                                   |
 
 ### Composição (futura)
 

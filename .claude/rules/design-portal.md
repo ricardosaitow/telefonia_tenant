@@ -59,12 +59,19 @@ Documento canônico de design: `docs/design.md`. ADR ancorada: P003. Estas regra
 - **Proibido** `outline-none` sem substitute focus styling.
 - Form: `aria-invalid` sempre quando há erro (Conform faz). Erros associados via `aria-describedby`.
 
+## Formato (radius)
+
+- **Proibido `rounded-full` em features, app, composed** (decisão P004). Avatares, buttons, badges, cards = `rounded-md` ou `rounded-lg`. ESLint bloqueia.
+- Exceção: status dots, loading spinners, decorações puramente icônicas — só em `src/components/ui/` com comentário `// rounded-full ok: <razão>`.
+- Padrão de avatar: quadrado de pontas arredondadas (`rounded-md` size-7/size-10/etc).
+
 ## Anti-padrões (NUNCA)
 
 - `<div className="bg-[#0d1221]">...` — cor hex inline.
 - `<div className="bg-zinc-900">...` — cor numerada.
 - `style={{ color: '#fff' }}` — style inline com cor.
 - `className="hover:shadow-2xl"` — sombra grossa.
+- `<div className="rounded-full">...` — pill em UI element (P004). Use `rounded-md` ou `rounded-lg`.
 - `<button>...</button>` em vez de `<Button>` — ignorar primitivo.
 - Inline de form: `<input>` direto em feature em vez de `<Input>`.
 - Tema condicional em feature: `theme === 'dark' ? 'bg-black' : 'bg-white'`. **Use tokens.**

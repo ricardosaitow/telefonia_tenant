@@ -80,6 +80,7 @@ model Tenant {
   updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   memberships           TenantMembership[]
+  activeSessions        Session[]          @relation("SessionActiveTenant")
 
   @@map("tenants")
 }
@@ -146,18 +147,24 @@ enum MembershipRole {
 // de tenant ativo vive no JWT/cookie separado, vem em 8c).
 // ---------------------------------------------------------------------------
 model Session {
-  id           String    @id @default(uuid(7)) @db.Uuid
-  sessionToken String    @unique @map("session_token")
-  accountId    String    @map("account_id") @db.Uuid
-  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
-  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(6)
-  ip           String?
-  userAgent    String?   @map("user_agent")
+  id             String    @id @default(uuid(7)) @db.Uuid
+  sessionToken   String    @unique @map("session_token")
+  accountId      String    @map("account_id") @db.Uuid
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(6)
+  ip             String?
+  userAgent      String?   @map("user_agent")
 
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // Tenant ativo da sessão (nullable: usuário acabou de logar e ainda não escolheu;
+  // ou tenant foi removido — onDelete: SetNull preserva sessão sem tenant).
+  // Trocar de tenant = update este campo. Próxima request lê o novo via callback session.
+  activeTenantId String?   @map("active_tenant_id") @db.Uuid
 
-  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account        Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  activeTenant   Tenant?   @relation("SessionActiveTenant", fields: [activeTenantId], references: [id], onDelete: SetNull)
 
   @@index([accountId])
   @@index([expiresAt])

@@ -62,6 +62,16 @@ const eslintConfig = defineConfig([
           message:
             "Cor Tailwind numerada proibida em template string (regra design-portal.md, ADR P003). Use tokens semânticos.",
         },
+        {
+          selector: "Literal[value=/\\brounded-full\\b/]",
+          message:
+            "rounded-full proibido em features/app/composed (P004 — sem pill). Use rounded-md ou rounded-lg. Exceção: status dots/spinners ficam em src/components/ui/.",
+        },
+        {
+          selector: "TemplateElement[value.raw=/\\brounded-full\\b/]",
+          message:
+            "rounded-full proibido em template string (P004 — sem pill). Use rounded-md ou rounded-lg.",
+        },
       ],
     },
   },

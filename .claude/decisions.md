@@ -83,6 +83,22 @@ Formato fixo: ID, título, data, status, decisão, rationale, alternativas rejei
 - Subagent `design-reviewer` documentado como pendente pra V1.5.
 - Quando sistema de UI nova surgir (ex.: dashboard com gráficos), primeiro adicionar componente composto em `src/components/composed/`, **depois** consumir na feature. Nunca inline.
 
+## P004 — Sem pill: `rounded-full` banido em UI elements (2026-04-28)
+
+**Status:** DECIDED ✓ DO NOT REOPEN
+**Decisão:** Avatares, buttons, badges, cards e demais UI elements em `src/features/**`, `src/app/**`, `src/components/composed/**` usam `rounded-md` (10px) ou `rounded-lg` (14px) — **nunca** `rounded-full`. Exceção: status dots, loading spinners e decorações puramente icônicas, restritas a `src/components/ui/**` com comentário `// rounded-full ok: <razão>`. ESLint bloqueia `rounded-full` nos paths proibidos.
+**Rationale:** decisão de produto explícita do user no feedback do 8c: "esse formato elipsoidal, não quero usar no sistema". Identidade visual do portal usa quadrados de pontas arredondadas — alinha com vibe Linear (square-ish) e mantém característica Pekiart pelo glow + glass + paleta, não pelo formato pill.
+**Alternativas rejeitadas:**
+- Manter pill no Button default (Pekiart Meet usa pill em CTAs): user vetou explicitamente; consistência interna do portal vence consistência cross-produto.
+- Permitir pill caso a caso: vira inconsistência em 6 meses. Regra dura.
+**Impacto:**
+- `src/components/ui/button.tsx`: variant default trocou `rounded-full` → `rounded-md`. Removidos `compoundVariants` que aplicavam pill em sizes icon.
+- `src/components/composed/user-menu.tsx`: avatar (initials) e wrapper trocaram `rounded-full` → `rounded-md`.
+- `docs/design.md` §5 (Radius): linha "Pill" virou linha riscada com nota "Banido — P004".
+- `.claude/rules/design-portal.md`: nova seção "Formato (radius)" + entrada nos Anti-padrões.
+- `eslint.config.mjs`: regex de cor numerada estendida pra capturar `\brounded-full\b` em features/app/composed.
+- Quando o Meet for re-skinnado pra alinhar com novo portal, transferir esta decisão pra lá (entrada no `decisions.md` cross-repo).
+
 ## Como adicionar nova ADR
 
 1. Decisão tomada no chat? Cria entrada aqui imediatamente.
