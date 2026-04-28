@@ -40,3 +40,36 @@ export async function listRoutingTargets(activeTenantId: string) {
 }
 
 export type RoutingRuleListItem = Awaited<ReturnType<typeof listRoutingRulesByChannel>>[number];
+
+/**
+ * Cross-channel: todas as RoutingRule do tenant ativo, agrupadas por canal.
+ * Pra index /routing.
+ */
+export async function listAllRoutingRules(activeTenantId: string) {
+  return withTenantContext(activeTenantId, (tx) =>
+    tx.channel.findMany({
+      orderBy: [{ tipo: "asc" }, { nomeAmigavel: "asc" }],
+      select: {
+        id: true,
+        tipo: true,
+        identificador: true,
+        nomeAmigavel: true,
+        defaultRoutingRuleId: true,
+        routingRules: {
+          orderBy: [{ prioridade: "asc" }, { createdAt: "asc" }],
+          select: {
+            id: true,
+            tipo: true,
+            prioridade: true,
+            targetDepartmentId: true,
+            targetAgentId: true,
+            targetDepartment: { select: { id: true, nome: true } },
+            targetAgent: { select: { id: true, nome: true } },
+          },
+        },
+      },
+    }),
+  );
+}
+
+export type ChannelWithRules = Awaited<ReturnType<typeof listAllRoutingRules>>[number];

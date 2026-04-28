@@ -87,7 +87,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/routing",
         icon: <Workflow />,
         capability: "routing:manage",
-        comingSoon: true,
       },
       {
         label: "Integrações",
