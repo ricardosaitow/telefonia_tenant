@@ -82,18 +82,25 @@ export default async function DashboardPage() {
       />
 
       {stats.recentSecurityEvents > 0 ? (
-        <Card variant="solid" padding="default" className="flex-row items-center gap-3">
-          <AlertTriangle className="text-accent-light size-5 shrink-0" />
-          <div className="flex-1">
-            <p className="text-foreground text-sm font-medium">
-              {stats.recentSecurityEvents} {stats.recentSecurityEvents === 1 ? "evento" : "eventos"}{" "}
-              de segurança nos últimos 7 dias
-            </p>
-            <p className="text-muted-foreground text-xs">
-              Severidade ≥ medium. Tela dedicada de SecurityEvents chega em V1.x.
-            </p>
-          </div>
-        </Card>
+        <Link href="/security-events" className="block">
+          <Card
+            variant="solid"
+            padding="default"
+            className="hover:border-accent-light/40 flex-row items-center gap-3 transition-colors"
+          >
+            <AlertTriangle className="text-accent-light size-5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-foreground text-sm font-medium">
+                {stats.recentSecurityEvents}{" "}
+                {stats.recentSecurityEvents === 1 ? "evento" : "eventos"} de segurança nos últimos 7
+                dias
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Severidade ≥ medium. Toque pra investigar.
+              </p>
+            </div>
+          </Card>
+        </Link>
       ) : null}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

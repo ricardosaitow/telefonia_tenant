@@ -14,6 +14,7 @@ import {
   Plug,
   ScrollText,
   Settings,
+  ShieldAlert,
   Users,
   Workflow,
 } from "lucide-react";
@@ -73,7 +74,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/knowledge",
         icon: <BookOpen />,
         capability: "knowledge:manage",
-        comingSoon: true,
       },
       {
         label: "Canais",
@@ -122,6 +122,12 @@ const GROUPS: SidebarGroup[] = [
         label: "Auditoria",
         href: "/audit",
         icon: <ScrollText />,
+        capability: "audit:view",
+      },
+      {
+        label: "Eventos de segurança",
+        href: "/security-events",
+        icon: <ShieldAlert />,
         capability: "audit:view",
       },
       {
