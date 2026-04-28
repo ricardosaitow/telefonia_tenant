@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 
 import { hashPassword } from "@/lib/auth/argon2";
 import { prismaAdmin } from "@/lib/db/admin-client";
+import { sendEmail } from "@/lib/email/send";
+import { WelcomeEmail } from "@/lib/email/templates/welcome";
 import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
+import { provisionTenantPbx } from "@/lib/onboarding/provision-tenant-pbx";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getClientIp, getUserAgent } from "@/lib/security/client-info";
 import { recordSecurityEvent, recordSecurityEventInTx } from "@/lib/security/event";
@@ -51,7 +54,7 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
   const passwordHash = await hashPassword(submission.value.password);
 
   try {
-    await prismaAdmin.$transaction(async (tx) => {
+    const created = await prismaAdmin.$transaction(async (tx) => {
       const account = await tx.account.create({
         data: {
           email: submission.value.email,
@@ -76,6 +79,32 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
           tenantName: submission.value.nomeTenant,
         },
       });
+      return { tenantId: tenant.id };
+    });
+
+    // Welcome email — fire-and-forget (não pode bloquear redirect, e falha
+    // de mailer não pode quebrar signup que JÁ foi commitado).
+    void sendEmail({
+      to: submission.value.email,
+      subject: "Bem-vindo à telefonia.ia",
+      react: WelcomeEmail({
+        nome: submission.value.nome,
+        tenantName: submission.value.nomeTenant,
+      }),
+      tags: [{ name: "category", value: "welcome" }],
+    });
+
+    // Provisiona Domain no FusionPBX — fire-and-forget pelo mesmo motivo do
+    // welcome email: PBX fora do ar não pode bloquear signup que já comitou.
+    // Falha aqui deixa Tenant.pbxDomainUuid=null; UI de /extensions mostra
+    // empty state "Domain não provisionado". `provisionTenantPbx` é
+    // idempotente, então retentativa via job ou admin tool resolve.
+    void provisionTenantPbx(created.tenantId).catch((err) => {
+      console.error(
+        "[signup] provision PBX falhou pra tenant %s — pbxDomainUuid fica null:",
+        created.tenantId,
+        err,
+      );
     });
   } catch (err) {
     if (
