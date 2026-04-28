@@ -71,42 +71,48 @@ export default async function ConversationsPage() {
             const ChannelIcon = CHANNEL_TYPE_ICON[conv.channel.tipo];
             return (
               <li key={conv.id}>
-                <Card variant="solid" padding="default" className="flex-row items-center gap-4">
-                  <div className="bg-glass-bg flex size-10 items-center justify-center rounded-md">
-                    <ChannelIcon className="text-accent-light size-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-foreground truncate text-sm font-medium">
-                        <User className="text-muted-foreground mr-1 inline size-3.5 align-text-bottom" />
-                        {conv.customerIdentifier ?? "—"}
-                      </p>
-                      <span className="bg-glass-bg text-muted-foreground rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
-                        {STATUS_LABEL[conv.status] ?? conv.status}
-                      </span>
-                      {conv.assistanceMode !== "ai_only" ? (
-                        <span className="text-accent-light bg-glass-bg rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
-                          {ASSISTANCE_LABEL[conv.assistanceMode]}
-                        </span>
-                      ) : null}
+                <Link href={`/conversations/${conv.id}`} className="block">
+                  <Card
+                    variant="solid"
+                    padding="default"
+                    className="hover:border-accent-light/40 flex-row items-center gap-4 transition-colors"
+                  >
+                    <div className="bg-glass-bg flex size-10 items-center justify-center rounded-md">
+                      <ChannelIcon className="text-accent-light size-5" />
                     </div>
-                    <p className="text-muted-foreground truncate text-xs">
-                      {conv.channel.nomeAmigavel}
-                      {conv.currentAgent ? ` · ${conv.currentAgent.nome}` : ""}
-                      {conv.currentDepartment ? ` · ${conv.currentDepartment.nome}` : ""}
-                      {conv.summary ? ` · ${conv.summary}` : ""}
-                    </p>
-                  </div>
-                  <div className="text-muted-foreground flex flex-col items-end text-xs">
-                    <span>
-                      {conv.startedAt.toLocaleString("pt-BR", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })}
-                    </span>
-                    <span>{formatDuration(conv.durationSeconds)}</span>
-                  </div>
-                </Card>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-foreground truncate text-sm font-medium">
+                          <User className="text-muted-foreground mr-1 inline size-3.5 align-text-bottom" />
+                          {conv.customerIdentifier ?? "—"}
+                        </p>
+                        <span className="bg-glass-bg text-muted-foreground rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
+                          {STATUS_LABEL[conv.status] ?? conv.status}
+                        </span>
+                        {conv.assistanceMode !== "ai_only" ? (
+                          <span className="text-accent-light bg-glass-bg rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
+                            {ASSISTANCE_LABEL[conv.assistanceMode]}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-muted-foreground truncate text-xs">
+                        {conv.channel.nomeAmigavel}
+                        {conv.currentAgent ? ` · ${conv.currentAgent.nome}` : ""}
+                        {conv.currentDepartment ? ` · ${conv.currentDepartment.nome}` : ""}
+                        {conv.summary ? ` · ${conv.summary}` : ""}
+                      </p>
+                    </div>
+                    <div className="text-muted-foreground flex flex-col items-end text-xs">
+                      <span>
+                        {conv.startedAt.toLocaleString("pt-BR", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                      </span>
+                      <span>{formatDuration(conv.durationSeconds)}</span>
+                    </div>
+                  </Card>
+                </Link>
               </li>
             );
           })}
