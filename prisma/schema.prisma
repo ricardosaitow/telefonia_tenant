@@ -99,6 +99,7 @@ model Tenant {
   conversations         Conversation[]
   turns                 Turn[]
   securityEvents        SecurityEvent[]
+  usageRecords          UsageRecord[]
 
   @@map("tenants")
 }
@@ -269,6 +270,7 @@ model Agent {
   conversationsAsCurrent Conversation[] @relation("ConversationCurrentAgent")
   conversationAgentHistoryFrom ConversationAgentHistory[] @relation("ConversationAgentHistoryFrom")
   conversationAgentHistoryTo   ConversationAgentHistory[] @relation("ConversationAgentHistoryTo")
+  usageRecords         UsageRecord[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -723,6 +725,7 @@ model Conversation {
   turns                 Turn[]
   agentHistory          ConversationAgentHistory[]
   interventions         ConversationIntervention[]
+  usageRecords          UsageRecord[]
 
   @@index([tenantId, startedAt(sort: Desc)])
   @@index([channelId])
@@ -976,4 +979,48 @@ enum SecurityCategory {
   anomaly
 
   @@map("security_category")
+}
+
+// ---------------------------------------------------------------------------
+// UsageRecord (Ontologia §16) — granularidade fina de uso/custo pra billing
+// e relatórios. Escrito pelo runtime (bridge-ia, wa-bridge, mailer) conforme
+// conversas rodam. Portal só LÊ.
+//
+// `tipo` é string livre pra evitar acoplar enum a cada novo provedor:
+//   - gemini_audio_minutes
+//   - gemini_tokens_in / gemini_tokens_out
+//   - whatsapp_message_session / whatsapp_message_template
+//   - email_sent
+//   - storage_gb_day
+//   - sip_call_minutes (futuro)
+//
+// Agregações por dia/mês ficam em views materializadas (V1.5).
+//
+// RLS por tenant_id (D002).
+// ---------------------------------------------------------------------------
+model UsageRecord {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  tenantId        String        @map("tenant_id") @db.Uuid
+
+  // Opcionais — granularidade: alguns custos são por conversa (audio
+  // minutes), outros por agente (tokens), outros do tenant (storage).
+  conversationId  String?       @map("conversation_id") @db.Uuid
+  agentId         String?       @map("agent_id") @db.Uuid
+
+  tipo            String
+  quantity        Decimal       @db.Decimal(18, 6)
+  unitCostUsd     Decimal       @map("unit_cost_usd") @db.Decimal(12, 8)
+  totalCostUsd    Decimal       @map("total_cost_usd") @db.Decimal(14, 6)
+
+  recordedAt      DateTime      @default(now()) @map("recorded_at") @db.Timestamptz(6)
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation    Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  agent           Agent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, recordedAt(sort: Desc)])
+  @@index([tenantId, tipo, recordedAt(sort: Desc)])
+  @@index([conversationId])
+  @@index([agentId])
+  @@map("usage_records")
 }

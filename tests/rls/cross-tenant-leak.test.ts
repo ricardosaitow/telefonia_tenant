@@ -31,6 +31,7 @@
  *   - conversation_intervention  (RLS no `tenant_id` denormalizado)
  *   - turns              (RLS no `tenant_id` denormalizado)
  *   - security_events    (RLS no `tenant_id` nullable -- null fica fora pra app_user)
+ *   - usage_records      (RLS no `tenant_id`)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
  * sessions e per-account, sem tenant_id -- nao entra aqui.
@@ -60,6 +61,7 @@ import type {
   Tenant,
   TenantMembership,
   Turn,
+  UsageRecord,
 } from "@/generated/prisma/client";
 
 import {
@@ -84,6 +86,7 @@ import {
   makeSecurityEvent,
   makeTenant,
   makeTurn,
+  makeUsageRecord,
 } from "../helpers/factories";
 import { asTenant } from "../helpers/tenants";
 import { appPrisma, migratorPrisma } from "../helpers/test-client";
@@ -112,6 +115,7 @@ let interventionA: ConversationIntervention;
 let turnA: Turn;
 let securityEventA: SecurityEvent;
 let securityEventGlobal: SecurityEvent;
+let usageRecordA: UsageRecord;
 
 beforeAll(async () => {
   // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
@@ -219,6 +223,14 @@ beforeAll(async () => {
     eventType: "login_fail",
     description: "Email não cadastrado",
   });
+  usageRecordA = await makeUsageRecord({
+    tenantId: tenantA.id,
+    conversationId: conversationA.id,
+    agentId: agentA.id,
+    tipo: "gemini_tokens_in",
+    quantity: 1234,
+    unitCostUsd: 0.0000001,
+  });
 });
 
 afterAll(async () => {
@@ -259,6 +271,7 @@ afterAll(async () => {
     await tx.agent.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.department.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.channel.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
+    await tx.usageRecord.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.tenantMembership.deleteMany({
       where: { tenantId: { in: [tenantA.id, tenantB.id] } },
     });
@@ -881,6 +894,49 @@ describe("RLS: security_events", () => {
   });
 });
 
+describe("RLS: usage_records", () => {
+  it("tenant B nao enxerga usage_record do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.usageRecord.findUnique({ where: { id: usageRecordA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany usage_record do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.usageRecord.updateMany({
+        where: { id: usageRecordA.id },
+        data: { tipo: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().usageRecord.findUnique({
+      where: { id: usageRecordA.id },
+    });
+    expect(reread?.tipo).toBe(usageRecordA.tipo);
+  });
+
+  it("tenant B nao consegue deleteMany usage_record do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.usageRecord.deleteMany({ where: { id: usageRecordA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().usageRecord.findUnique({
+      where: { id: usageRecordA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga seu proprio usage_record", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.usageRecord.findUnique({ where: { id: usageRecordA.id } }),
+    );
+    expect(found?.id).toBe(usageRecordA.id);
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
     const list = await appPrisma().tenant.findMany({
@@ -966,6 +1022,11 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
     const list = await appPrisma().securityEvent.findMany({
       where: { id: { in: [securityEventA.id, securityEventGlobal.id] } },
     });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, usage_records devolve 0 rows", async () => {
+    const list = await appPrisma().usageRecord.findMany({ where: { id: usageRecordA.id } });
     expect(list).toEqual([]);
   });
 });

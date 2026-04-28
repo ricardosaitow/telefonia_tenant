@@ -116,7 +116,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/usage",
         icon: <BarChart3 />,
         capability: "usage:view",
-        comingSoon: true,
       },
       {
         label: "Auditoria",

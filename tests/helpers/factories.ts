@@ -34,6 +34,7 @@ import type {
   Tenant,
   TenantMembership,
   Turn,
+  UsageRecord,
 } from "@/generated/prisma/client";
 
 import { asMigrator } from "./tenants";
@@ -467,6 +468,33 @@ export async function makeSecurityEvent(
         category: input.category ?? "authn",
         eventType: input.eventType ?? "test_event",
         description: input.description ?? null,
+      },
+    }),
+  );
+}
+
+export interface MakeUsageRecordInput {
+  tenantId: string;
+  conversationId?: string;
+  agentId?: string;
+  tipo?: string;
+  quantity?: number;
+  unitCostUsd?: number;
+}
+
+export async function makeUsageRecord(input: MakeUsageRecordInput): Promise<UsageRecord> {
+  const quantity = input.quantity ?? 1;
+  const unit = input.unitCostUsd ?? 0.001;
+  return asMigrator((tx) =>
+    tx.usageRecord.create({
+      data: {
+        tenantId: input.tenantId,
+        conversationId: input.conversationId ?? null,
+        agentId: input.agentId ?? null,
+        tipo: input.tipo ?? "gemini_tokens_in",
+        quantity,
+        unitCostUsd: unit,
+        totalCostUsd: quantity * unit,
       },
     }),
   );
