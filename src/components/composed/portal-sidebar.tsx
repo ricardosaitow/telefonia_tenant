@@ -128,7 +128,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/audit",
         icon: <ScrollText />,
         capability: "audit:view",
-        comingSoon: true,
       },
       {
         label: "Configurações",
