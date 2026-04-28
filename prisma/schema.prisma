@@ -89,6 +89,9 @@ model Tenant {
   auditLogs             AuditLog[]
   channels              Channel[]
   routingRules          RoutingRule[]
+  knowledgeSources      KnowledgeSource[]
+  agentKnowledge        AgentKnowledge[]
+  agentTools            AgentTool[]
 
   @@map("tenants")
 }
@@ -253,6 +256,8 @@ model Agent {
   currentVersion    AgentVersion?  @relation("AgentCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
 
   routingRulesAsTarget RoutingRule[] @relation("RoutingRuleTargetAgent")
+  knowledgeSources     AgentKnowledge[]
+  tools                AgentTool[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -475,4 +480,129 @@ enum RoutingRuleType {
   ai_router
 
   @@map("routing_rule_type")
+}
+
+// ---------------------------------------------------------------------------
+// KnowledgeSource — fonte de conhecimento pra RAG (Ontologia §8). Escopo
+// flexível: tenant / department / agent. Retrieval em runtime combina cascata
+// agent ∪ department ∪ tenant (lógica fica no data plane / runtime IA).
+//
+// `scopeRefId` é nullable se scope=tenant; pra department/agent aponta pra ID
+// do respectivo (sem FK formal — depende do scope; validação no app).
+//
+// `storageRef` aponta pro original em volume/S3 (path com prefixo do tenant).
+// Embeddings ficam em vector store separado (namespace por tenant), gerenciado
+// pelo data plane — schema só guarda metadados.
+//
+// RLS por tenant_id (D002).
+// ---------------------------------------------------------------------------
+model KnowledgeSource {
+  id                String                @id @default(uuid(7)) @db.Uuid
+  tenantId          String                @map("tenant_id") @db.Uuid
+
+  scope             KnowledgeScope
+  scopeRefId        String?               @map("scope_ref_id") @db.Uuid
+
+  tipo              KnowledgeSourceType
+  nome              String
+  descricao         String?
+  language          String?
+
+  status            KnowledgeSourceStatus @default(uploading)
+  chunkCount        Int                   @default(0) @map("chunk_count")
+  lastIndexedAt     DateTime?             @map("last_indexed_at") @db.Timestamptz(6)
+  sourceMetadata    Json?                 @map("source_metadata")
+  storageRef        String?               @map("storage_ref")
+
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agentKnowledge    AgentKnowledge[]
+
+  @@index([tenantId])
+  @@index([scope, scopeRefId])
+  @@map("knowledge_sources")
+}
+
+enum KnowledgeScope {
+  tenant
+  department
+  agent
+
+  @@map("knowledge_scope")
+}
+
+enum KnowledgeSourceType {
+  upload_pdf
+  upload_docx
+  upload_xlsx
+  upload_txt
+  url_crawl
+  gdrive_folder
+  notion
+  manual_text
+
+  @@map("knowledge_source_type")
+}
+
+enum KnowledgeSourceStatus {
+  uploading
+  indexing
+  ready
+  error
+
+  @@map("knowledge_source_status")
+}
+
+// ---------------------------------------------------------------------------
+// AgentKnowledge — M:N Agent ↔ KnowledgeSource (Ontologia §6/§8).
+// `tenantId` denormalizado pra RLS sem JOIN.
+// ---------------------------------------------------------------------------
+model AgentKnowledge {
+  agentId           String          @map("agent_id") @db.Uuid
+  knowledgeSourceId String          @map("knowledge_source_id") @db.Uuid
+  tenantId          String          @map("tenant_id") @db.Uuid
+
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent             Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  knowledgeSource   KnowledgeSource @relation(fields: [knowledgeSourceId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, knowledgeSourceId])
+  @@index([tenantId])
+  @@index([knowledgeSourceId])
+  @@map("agent_knowledge")
+}
+
+// ---------------------------------------------------------------------------
+// AgentTool — habilitação de Tool (catálogo de função) por Agent (Ontologia §9).
+//
+// `toolKey` é string livre validada contra catálogo Pekiart no app
+// (consultar_produto, consultar_pedido, transferir_humano, etc). V1 não
+// modela Tool como tabela própria — vem só quando custom tools (Premium V2).
+//
+// `requiresIntegrationId` aponta pra Integration FK (a tabela Integration
+// chega em fatia futura — coluna fica preparada).
+// ---------------------------------------------------------------------------
+model AgentTool {
+  id                       String   @id @default(uuid(7)) @db.Uuid
+  tenantId                 String   @map("tenant_id") @db.Uuid
+  agentId                  String   @map("agent_id") @db.Uuid
+
+  toolKey                  String   @map("tool_key")
+  enabled                  Boolean  @default(true)
+  config                   Json     @default("{}")
+  requiresIntegrationId    String?  @map("requires_integration_id") @db.Uuid
+
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent                    Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, toolKey])
+  @@index([tenantId])
+  @@map("agent_tools")
 }

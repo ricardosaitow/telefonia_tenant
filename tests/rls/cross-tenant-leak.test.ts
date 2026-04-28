@@ -18,6 +18,9 @@
  *   - audit_logs         (RLS no `tenant_id`)
  *   - channels           (RLS no `tenant_id`)
  *   - routing_rules      (RLS no `tenant_id`)
+ *   - knowledge_sources  (RLS no `tenant_id`)
+ *   - agent_knowledge    (RLS no `tenant_id` denormalizado)
+ *   - agent_tools        (RLS no `tenant_id`)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
  * sessions e per-account, sem tenant_id -- nao entra aqui.
@@ -28,10 +31,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type {
   Account,
   Agent,
+  AgentKnowledge,
+  AgentTool,
   AgentVersion,
   AuditLog,
   Channel,
   Department,
+  KnowledgeSource,
   RoutingRule,
   Tenant,
   TenantMembership,
@@ -40,10 +46,13 @@ import type {
 import {
   makeAccount,
   makeAgent,
+  makeAgentKnowledge,
+  makeAgentTool,
   makeAgentVersion,
   makeAuditLog,
   makeChannel,
   makeDepartment,
+  makeKnowledgeSource,
   makeMembership,
   makeRoutingRule,
   makeTenant,
@@ -62,6 +71,9 @@ let agentVersionA: AgentVersion;
 let auditLogA: AuditLog;
 let channelA: Channel;
 let routingRuleA: RoutingRule;
+let knowledgeSourceA: KnowledgeSource;
+let agentKnowledgeA: AgentKnowledge;
+let agentToolA: AgentTool;
 
 beforeAll(async () => {
   // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
@@ -103,13 +115,24 @@ beforeAll(async () => {
     channelId: channelA.id,
     targetDepartmentId: departmentA.id,
   });
+  knowledgeSourceA = await makeKnowledgeSource({ tenantId: tenantA.id });
+  agentKnowledgeA = await makeAgentKnowledge({
+    tenantId: tenantA.id,
+    agentId: agentA.id,
+    knowledgeSourceId: knowledgeSourceA.id,
+  });
+  agentToolA = await makeAgentTool({ tenantId: tenantA.id, agentId: agentA.id });
 });
 
 afterAll(async () => {
   // Limpa pra nao poluir runs subsequentes do mesmo container.
-  // Ordem FK: routing_rules -> audit_logs -> agent_versions -> agents
+  // Ordem FK (filhos primeiro): agent_tools, agent_knowledge -> knowledge_sources
+  //         -> routing_rules -> audit_logs -> agent_versions -> agents
   //         -> departments -> channels -> memberships -> tenants -> accounts.
   await migratorPrisma().$transaction(async (tx) => {
+    await tx.agentTool.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
+    await tx.agentKnowledge.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
+    await tx.knowledgeSource.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.routingRule.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.auditLog.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.agentVersion.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
@@ -417,6 +440,104 @@ describe("RLS: routing_rules", () => {
   });
 });
 
+describe("RLS: knowledge_sources", () => {
+  it("tenant B nao enxerga knowledge_source do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.knowledgeSource.findUnique({ where: { id: knowledgeSourceA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany knowledge_source do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.knowledgeSource.updateMany({
+        where: { id: knowledgeSourceA.id },
+        data: { nome: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().knowledgeSource.findUnique({
+      where: { id: knowledgeSourceA.id },
+    });
+    expect(reread?.nome).toBe(knowledgeSourceA.nome);
+  });
+
+  it("tenant B nao consegue deleteMany knowledge_source do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.knowledgeSource.deleteMany({ where: { id: knowledgeSourceA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().knowledgeSource.findUnique({
+      where: { id: knowledgeSourceA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+});
+
+describe("RLS: agent_knowledge", () => {
+  it("tenant B nao enxerga agent_knowledge do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.agentKnowledge.findFirst({
+        where: {
+          agentId: agentKnowledgeA.agentId,
+          knowledgeSourceId: agentKnowledgeA.knowledgeSourceId,
+        },
+      }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue deleteMany agent_knowledge do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.agentKnowledge.deleteMany({
+        where: {
+          agentId: agentKnowledgeA.agentId,
+          knowledgeSourceId: agentKnowledgeA.knowledgeSourceId,
+        },
+      }),
+    );
+    expect(result.count).toBe(0);
+  });
+});
+
+describe("RLS: agent_tools", () => {
+  it("tenant B nao enxerga agent_tool do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.agentTool.findUnique({ where: { id: agentToolA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany agent_tool do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.agentTool.updateMany({
+        where: { id: agentToolA.id },
+        data: { enabled: false },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().agentTool.findUnique({
+      where: { id: agentToolA.id },
+    });
+    expect(reread?.enabled).toBe(agentToolA.enabled);
+  });
+
+  it("tenant B nao consegue deleteMany agent_tool do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.agentTool.deleteMany({ where: { id: agentToolA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().agentTool.findUnique({
+      where: { id: agentToolA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
     const list = await appPrisma().tenant.findMany({
@@ -459,6 +580,25 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
 
   it("sem app.current_tenant setado, routing_rules devolve 0 rows", async () => {
     const list = await appPrisma().routingRule.findMany({ where: { id: routingRuleA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, knowledge_sources devolve 0 rows", async () => {
+    const list = await appPrisma().knowledgeSource.findMany({
+      where: { id: knowledgeSourceA.id },
+    });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, agent_knowledge devolve 0 rows", async () => {
+    const list = await appPrisma().agentKnowledge.findMany({
+      where: { agentId: agentKnowledgeA.agentId },
+    });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, agent_tools devolve 0 rows", async () => {
+    const list = await appPrisma().agentTool.findMany({ where: { id: agentToolA.id } });
     expect(list).toEqual([]);
   });
 });

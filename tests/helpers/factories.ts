@@ -13,10 +13,13 @@
 import type {
   Account,
   Agent,
+  AgentKnowledge,
+  AgentTool,
   AgentVersion,
   AuditLog,
   Channel,
   Department,
+  KnowledgeSource,
   RoutingRule,
   Tenant,
   TenantMembership,
@@ -211,6 +214,68 @@ export async function makeRoutingRule(input: MakeRoutingRuleInput): Promise<Rout
         targetDepartmentId: input.targetDepartmentId ?? null,
         targetAgentId: input.targetAgentId ?? null,
         targetRoutingRuleId: input.targetRoutingRuleId ?? null,
+      },
+    }),
+  );
+}
+
+export interface MakeKnowledgeSourceInput {
+  tenantId: string;
+  scope?: "tenant" | "department" | "agent";
+  scopeRefId?: string;
+  tipo?: "manual_text" | "upload_pdf" | "url_crawl";
+  nome?: string;
+}
+
+export async function makeKnowledgeSource(
+  input: MakeKnowledgeSourceInput,
+): Promise<KnowledgeSource> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.knowledgeSource.create({
+      data: {
+        tenantId: input.tenantId,
+        scope: input.scope ?? "tenant",
+        scopeRefId: input.scopeRefId ?? null,
+        tipo: input.tipo ?? "manual_text",
+        nome: input.nome ?? `Knowledge ${id.slice(0, 8)}`,
+      },
+    }),
+  );
+}
+
+export interface MakeAgentKnowledgeInput {
+  tenantId: string;
+  agentId: string;
+  knowledgeSourceId: string;
+}
+
+export async function makeAgentKnowledge(input: MakeAgentKnowledgeInput): Promise<AgentKnowledge> {
+  return asMigrator((tx) =>
+    tx.agentKnowledge.create({
+      data: {
+        tenantId: input.tenantId,
+        agentId: input.agentId,
+        knowledgeSourceId: input.knowledgeSourceId,
+      },
+    }),
+  );
+}
+
+export interface MakeAgentToolInput {
+  tenantId: string;
+  agentId: string;
+  toolKey?: string;
+}
+
+export async function makeAgentTool(input: MakeAgentToolInput): Promise<AgentTool> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.agentTool.create({
+      data: {
+        tenantId: input.tenantId,
+        agentId: input.agentId,
+        toolKey: input.toolKey ?? `tool_${id.slice(0, 8)}`,
       },
     }),
   );
