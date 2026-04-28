@@ -25,6 +25,7 @@ import type {
   ConversationVoiceData,
   ConversationWhatsappData,
   Department,
+  Extension,
   KnowledgeSource,
   MessageTemplate,
   RoutingRule,
@@ -202,6 +203,32 @@ export async function makeChannel(input: MakeChannelInput): Promise<Channel> {
         tipo: input.tipo ?? "voice_did",
         identificador: input.identificador ?? `chan-${id.slice(0, 12)}`,
         nomeAmigavel: input.nomeAmigavel ?? `Channel ${id.slice(0, 8)}`,
+      },
+    }),
+  );
+}
+
+export interface MakeExtensionInput {
+  tenantId: string;
+  extension?: string;
+  displayName?: string;
+  passwordRef?: string;
+  enabled?: boolean;
+}
+
+export async function makeExtension(input: MakeExtensionInput): Promise<Extension> {
+  const id = crypto.randomUUID();
+  // Numero de ramal "unico" por tenant: usa 4 digitos baseados no UUID pra
+  // evitar colisao em reuso de container entre test files.
+  const ext = input.extension ?? `1${id.replace(/-/g, "").slice(0, 3)}`;
+  return asMigrator((tx) =>
+    tx.extension.create({
+      data: {
+        tenantId: input.tenantId,
+        extension: ext,
+        displayName: input.displayName ?? `Ramal ${ext}`,
+        passwordRef: input.passwordRef ?? `/tenants/test/sip/${ext}`,
+        enabled: input.enabled ?? true,
       },
     }),
   );

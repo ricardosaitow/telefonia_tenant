@@ -7,6 +7,7 @@ import {
   Building2,
   ChevronsLeft,
   ChevronsRight,
+  Hash,
   LayoutDashboard,
   MessageSquareQuote,
   MessagesSquare,
@@ -80,6 +81,12 @@ const GROUPS: SidebarGroup[] = [
         href: "/channels",
         icon: <Phone />,
         capability: "channel:manage",
+      },
+      {
+        label: "Ramais",
+        href: "/extensions",
+        icon: <Hash />,
+        capability: "extension:manage",
       },
       {
         label: "Roteamento",

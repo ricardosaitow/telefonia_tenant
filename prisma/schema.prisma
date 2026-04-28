@@ -81,6 +81,11 @@ model Tenant {
   defaultLocale         String       @default("pt-BR") @map("default_locale")
   status                TenantStatus @default(trial)
 
+  // FK pra v_domains.domain_uuid no Postgres do FusionPBX (cross-DB, sem FK
+  // formal). Nullable: tenant pode existir antes da integração ser provisionada.
+  // @unique evita 2 tenants apontarem pro mesmo Domain do PBX.
+  pbxDomainUuid         String?      @unique @map("pbx_domain_uuid") @db.Uuid
+
   createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -91,6 +96,7 @@ model Tenant {
   agentVersions         AgentVersion[]
   auditLogs             AuditLog[]
   channels              Channel[]
+  extensions            Extension[]
   routingRules          RoutingRule[]
   knowledgeSources      KnowledgeSource[]
   agentKnowledge        AgentKnowledge[]
@@ -102,6 +108,40 @@ model Tenant {
   usageRecords          UsageRecord[]
 
   @@map("tenants")
+}
+
+// ---------------------------------------------------------------------------
+// Extension — ramal SIP interno do tenant (1001, 1002, ...). Provisionado
+// no FusionPBX (tabela v_extensions). Portal é fonte de verdade lógica;
+// FusionPBX é o data plane que serve registers/calls.
+//
+// Senha SIP NUNCA em claro (D009). passwordRef aponta pra path Infisical
+// `/tenants/<slug>/sip/<extension>` (ou env var em dev).
+// pbxExtensionUuid: FK lógica pra v_extensions.extension_uuid; nullable
+// até provisioning concluir.
+//
+// extensionNumber é único PER tenant — 2 tenants podem ter "1001".
+// RLS por tenant_id (D002).
+// ---------------------------------------------------------------------------
+model Extension {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+
+  extension         String                                                       // "1001", "2003", etc
+  displayName       String?  @map("display_name")                                // "Recepção", "João - Vendas"
+  passwordRef       String   @map("password_ref")                                // Infisical path
+  pbxExtensionUuid  String?  @unique @map("pbx_extension_uuid") @db.Uuid
+
+  enabled           Boolean  @default(true)
+
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, extension])
+  @@index([tenantId])
+  @@map("extensions")
 }
 
 enum TenantStatus {

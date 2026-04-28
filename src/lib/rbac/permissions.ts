@@ -16,6 +16,7 @@ export type Capability =
   | "agent:manage"
   | "knowledge:manage"
   | "channel:manage"
+  | "extension:manage"
   | "routing:manage"
   | "integration:manage"
   | "template:manage"
@@ -45,6 +46,7 @@ const ALLOW: Record<Capability, MembershipRole[]> = {
   "agent:manage": ["tenant_owner", "tenant_admin", "department_supervisor"],
   "knowledge:manage": ["tenant_owner", "tenant_admin", "department_supervisor"],
   "channel:manage": ["tenant_owner", "tenant_admin"],
+  "extension:manage": ["tenant_owner", "tenant_admin"],
   "routing:manage": ["tenant_owner", "tenant_admin"],
   "integration:manage": ["tenant_owner", "tenant_admin"],
   "template:manage": ["tenant_owner", "tenant_admin", "department_supervisor"],

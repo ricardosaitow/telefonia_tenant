@@ -17,6 +17,7 @@
  *   - agent_versions     (RLS no `tenant_id` denormalizado)
  *   - audit_logs         (RLS no `tenant_id`)
  *   - channels           (RLS no `tenant_id`)
+ *   - extensions         (RLS no `tenant_id`)
  *   - routing_rules      (RLS no `tenant_id`)
 
  *   - knowledge_sources  (RLS no `tenant_id`)
@@ -54,6 +55,7 @@ import type {
   ConversationVoiceData,
   ConversationWhatsappData,
   Department,
+  Extension,
   KnowledgeSource,
   MessageTemplate,
   RoutingRule,
@@ -79,6 +81,7 @@ import {
   makeConversationVoiceData,
   makeConversationWhatsappData,
   makeDepartment,
+  makeExtension,
   makeKnowledgeSource,
   makeMembership,
   makeMessageTemplate,
@@ -101,6 +104,7 @@ let agentA: Agent;
 let agentVersionA: AgentVersion;
 let auditLogA: AuditLog;
 let channelA: Channel;
+let extensionA: Extension;
 let routingRuleA: RoutingRule;
 let knowledgeSourceA: KnowledgeSource;
 let agentKnowledgeA: AgentKnowledge;
@@ -152,6 +156,7 @@ beforeAll(async () => {
     entityId: departmentA.id,
   });
   channelA = await makeChannel({ tenantId: tenantA.id });
+  extensionA = await makeExtension({ tenantId: tenantA.id });
   routingRuleA = await makeRoutingRule({
     tenantId: tenantA.id,
     channelId: channelA.id,
@@ -271,6 +276,7 @@ afterAll(async () => {
     await tx.agent.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.department.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.channel.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
+    await tx.extension.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.usageRecord.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.tenantMembership.deleteMany({
       where: { tenantId: { in: [tenantA.id, tenantB.id] } },
@@ -539,6 +545,56 @@ describe("RLS: channels", () => {
 
     const reread = await migratorPrisma().channel.findUnique({ where: { id: channelA.id } });
     expect(reread).not.toBeNull();
+  });
+});
+
+describe("RLS: extensions", () => {
+  it("tenant B nao enxerga extension do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.extension.findUnique({ where: { id: extensionA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao lista extension do tenant A em findMany", async () => {
+    const list = await asTenant(tenantB.id, (tx) =>
+      tx.extension.findMany({ where: { id: extensionA.id } }),
+    );
+    expect(list).toEqual([]);
+  });
+
+  it("tenant B nao consegue updateMany extension do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.extension.updateMany({
+        where: { id: extensionA.id },
+        data: { displayName: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().extension.findUnique({
+      where: { id: extensionA.id },
+    });
+    expect(reread?.displayName).toBe(extensionA.displayName);
+  });
+
+  it("tenant B nao consegue deleteMany extension do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.extension.deleteMany({ where: { id: extensionA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().extension.findUnique({
+      where: { id: extensionA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga sua propria extension", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.extension.findUnique({ where: { id: extensionA.id } }),
+    );
+    expect(found?.id).toBe(extensionA.id);
   });
 });
 
@@ -974,6 +1030,11 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
 
   it("sem app.current_tenant setado, channels devolve 0 rows", async () => {
     const list = await appPrisma().channel.findMany({ where: { id: channelA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, extensions devolve 0 rows", async () => {
+    const list = await appPrisma().extension.findMany({ where: { id: extensionA.id } });
     expect(list).toEqual([]);
   });
 
