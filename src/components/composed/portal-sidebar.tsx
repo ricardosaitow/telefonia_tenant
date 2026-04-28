@@ -130,7 +130,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/settings",
         icon: <Settings />,
         capability: "tenant:settings",
-        comingSoon: true,
       },
     ],
   },
