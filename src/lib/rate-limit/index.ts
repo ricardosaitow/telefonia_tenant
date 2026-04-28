@@ -54,8 +54,16 @@ class MemoryStore implements RateLimitStore {
   }
 }
 
-// Singleton — module-level pra sobreviver entre requests no mesmo processo.
-const store: RateLimitStore = new MemoryStore();
+// Singleton em `globalThis` pra sobreviver entre requests E entre HMR reloads
+// no dev (Next.js re-avalia módulos em hot reload, perdendo state module-level).
+// Mesmo padrão usado pro Prisma client.
+declare global {
+  var __rateLimitStore: RateLimitStore | undefined;
+}
+const store: RateLimitStore = globalThis.__rateLimitStore ?? new MemoryStore();
+if (process.env.NODE_ENV !== "production") {
+  globalThis.__rateLimitStore = store;
+}
 
 export type RateLimitResult = { ok: true; remaining: number } | { ok: false; resetSec: number };
 
