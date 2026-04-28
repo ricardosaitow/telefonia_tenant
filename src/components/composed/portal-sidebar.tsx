@@ -111,7 +111,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/members",
         icon: <Users />,
         capability: "tenant:manage_members",
-        comingSoon: true,
       },
       {
         label: "Uso & custos",
