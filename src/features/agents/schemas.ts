@@ -1,15 +1,15 @@
 import { z } from "zod";
 
 /**
- * Agent: nome + descricao opcional + Department (FK obrigatória) +
- * systemPrompt do draft.
+ * Agent: nome + descricao opcional + Department (FK obrigatória).
  *
- * draftState completo é JSON com {systemPrompt, params, toolsConfig};
- * V1 expõe só systemPrompt na UI. Outros campos aparecem em C2b/C3
- * conforme features (tools, knowledge) chegarem.
+ * `systemPrompt` é OPCIONAL no create — novos agents nascem com
+ * `vertical=comercial-b2b` e os defaults do template já cobrem prompt
+ * funcional. User refina depois via wizard em /agents/[id]. Quando
+ * preenchido aqui, vai pra `draftState.systemPromptOverride` (modo expert).
  *
- * status fica fixo em "draft" no create — virar production exige
- * publish (cria AgentVersion), pendente C2b.
+ * status fica fixo em "draft" no create — virar production exige publish
+ * (cria AgentVersion).
  */
 export const agentInputSchema = z.object({
   nome: z.string().min(2).max(120).trim(),
@@ -20,7 +20,12 @@ export const agentInputSchema = z.object({
     .optional()
     .transform((v) => (v && v.length > 0 ? v : undefined)),
   departmentId: z.string().uuid(),
-  systemPrompt: z.string().min(1).max(50000).trim(),
+  systemPrompt: z
+    .string()
+    .max(50000)
+    .trim()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
 });
 
 export const updateAgentInputSchema = agentInputSchema.extend({

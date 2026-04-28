@@ -28,10 +28,18 @@ export async function createAgentAction(_prevState: unknown, formData: FormData)
           slug: slugifyAgentName(submission.value.nome),
           nome: submission.value.nome,
           descricao: submission.value.descricao ?? null,
+          // Novo agent nasce com vertical default — wizard refina depois.
+          // Se user já passou systemPrompt no create, preserva como override.
           draftState: {
-            systemPrompt: submission.value.systemPrompt,
+            schemaVersion: 1,
+            vertical: submission.value.systemPrompt ? "custom" : "comercial-b2b",
+            ...(submission.value.systemPrompt
+              ? { systemPromptOverride: submission.value.systemPrompt }
+              : {}),
+            toolsEnabled: [],
+            workflows: [],
+            limites: [],
             params: {},
-            toolsConfig: [],
           },
         },
       });

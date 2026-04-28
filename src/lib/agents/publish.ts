@@ -1,20 +1,24 @@
 import type { Prisma } from "@/generated/prisma/client";
 
+import { parseDraftState, validToolKeys } from "./draft-state-schema";
+import { renderSystemPrompt } from "./render-prompt";
+import { type ToolKey, TOOLS_CATALOG } from "./tools-catalog";
+
 /**
  * Publica nova AgentVersion a partir do draftState atual do Agent (D005).
  *
  * Fluxo:
- *  1. Lê Agent (com versions ordenadas) dentro da TX.
- *  2. Calcula próxima version (max + 1).
- *  3. Cria AgentVersion (snapshot imutável).
- *  4. Atualiza Agent: currentVersionId, lastPublishedAt, status=production.
+ *  1. Lê Agent + Tenant.nomeFantasia + KnowledgeSources scope=ready.
+ *  2. Renderiza systemPrompt via renderSystemPrompt(draftState, ...).
+ *  3. Snapshot de tools (key + label + criterio + integração).
+ *  4. Snapshot de knowledge (id + nome + descricao).
+ *  5. Cria AgentVersion (imutável) com next version (max + 1).
+ *  6. Atualiza Agent: currentVersionId, lastPublishedAt, status=production.
  *
  * Caller é responsável pelo `withTenantContext` (RLS). Recebe TX pra
  * encadear com auditoria/notificações futuras.
  *
- * Lança Error se draft inválido (sem systemPrompt). Validação extensa
- * (Zod) fica nas Server Actions; aqui só guarda mínima pra evitar
- * publish corrompido.
+ * Lança Error se render falhar (draft sem prompt nem template válido).
  */
 export type PublishAgentResult = {
   versionId: string;
@@ -35,6 +39,7 @@ export async function publishAgentInTx(
     select: {
       id: true,
       tenantId: true,
+      nome: true,
       draftState: true,
       versions: {
         orderBy: { version: "desc" },
@@ -51,14 +56,60 @@ export async function publishAgentInTx(
     throw new Error("tenant_mismatch");
   }
 
-  const draft = (agent.draftState ?? {}) as {
-    systemPrompt?: string;
-    params?: Record<string, unknown>;
-    toolsConfig?: unknown[];
-  };
-  if (typeof draft.systemPrompt !== "string" || draft.systemPrompt.trim().length === 0) {
-    throw new Error("draft_invalid_system_prompt");
+  const tenant = await tx.tenant.findUnique({
+    where: { id: agent.tenantId },
+    select: { nomeFantasia: true },
+  });
+  if (!tenant) {
+    throw new Error("tenant_not_found");
   }
+
+  // Knowledge sources visíveis: status=ready (filtra uploading/indexing/error).
+  // Cascata por scope (tenant/department/agent) é responsabilidade do runtime
+  // — o snapshot guarda TODOS pra que rollback de versão preserve a foto.
+  const knowledgeSources = await tx.knowledgeSource.findMany({
+    where: { tenantId: agent.tenantId, status: "ready" },
+    select: {
+      id: true,
+      nome: true,
+      descricao: true,
+      scope: true,
+      scopeRefId: true,
+    },
+  });
+
+  const draft = parseDraftState(agent.draftState);
+
+  // Renderiza prompt — falha aqui = draft inválido (lança).
+  const renderedPrompt = renderSystemPrompt({
+    agent: { nome: agent.nome },
+    tenant: { nomeFantasia: tenant.nomeFantasia },
+    knowledge: knowledgeSources.map((k) => ({
+      nome: k.nome,
+      descricao: k.descricao ?? null,
+    })),
+    draftState: agent.draftState,
+  });
+
+  // Snapshot de tools — captura state completo no momento do publish.
+  const toolKeys = validToolKeys(
+    draft.toolsEnabled,
+    Object.keys(TOOLS_CATALOG) as readonly ToolKey[],
+  );
+  const toolsSnapshot = toolKeys.map((k) => ({
+    key: k,
+    label: TOOLS_CATALOG[k].label,
+    criterioUso: TOOLS_CATALOG[k].criterioUso,
+    requiresIntegration: TOOLS_CATALOG[k].requiresIntegration,
+  }));
+
+  const knowledgeSnapshot = knowledgeSources.map((k) => ({
+    id: k.id,
+    nome: k.nome,
+    descricao: k.descricao,
+    scope: k.scope,
+    scopeRefId: k.scopeRefId,
+  }));
 
   const nextVersion = (agent.versions[0]?.version ?? 0) + 1;
 
@@ -68,10 +119,10 @@ export async function publishAgentInTx(
       tenantId: agent.tenantId,
       version: nextVersion,
       publishedByAccountId: input.publishedByAccountId,
-      systemPrompt: draft.systemPrompt,
-      params: (draft.params ?? {}) as Prisma.InputJsonValue,
-      toolsSnapshot: (draft.toolsConfig ?? []) as Prisma.InputJsonValue,
-      knowledgeSnapshot: [] as unknown as Prisma.InputJsonValue,
+      systemPrompt: renderedPrompt,
+      params: draft.params as Prisma.InputJsonValue,
+      toolsSnapshot: toolsSnapshot as unknown as Prisma.InputJsonValue,
+      knowledgeSnapshot: knowledgeSnapshot as unknown as Prisma.InputJsonValue,
       changelog: input.changelog ?? null,
     },
     select: { id: true, version: true },

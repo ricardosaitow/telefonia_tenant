@@ -122,17 +122,16 @@ export function AgentForm({ mode, departments, defaultValues }: AgentFormProps) 
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.systemPrompt.id}>System prompt</Label>
+        <Label htmlFor={fields.systemPrompt.id}>System prompt (modo expert — opcional)</Label>
         <Textarea
           {...getTextareaProps(fields.systemPrompt)}
           key={fields.systemPrompt.key}
-          rows={10}
-          required
-          placeholder="Você é um agente da empresa X. Sua função é..."
+          rows={6}
+          placeholder="Vazio = configure pelo wizard. Preenchido aqui = sobrescreve TODO o template gerado."
         />
         <p className="text-muted-foreground text-xs">
-          Instruções base do agente. Ainda em rascunho — publish (criar AgentVersion) chega na
-          próxima fatia.
+          Recomendado: deixe vazio e use o wizard de configuração (logo abaixo, após criar). Este
+          campo só pra colar prompt cru pré-pronto.
         </p>
         {fields.systemPrompt.errors?.length ? (
           <p className="text-destructive text-sm">{fields.systemPrompt.errors.join(" ")}</p>

@@ -13,6 +13,7 @@ import { PauseAgentButton } from "./pause-button";
 import { PublishAgentButton } from "./publish-button";
 import { ToolsSection } from "./tools-section";
 import { VersionHistory } from "./version-history";
+import { AgentWizardForm } from "./wizard-form";
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "Rascunho",
@@ -84,6 +85,17 @@ export default async function EditAgentPage({ params }: EditAgentPageProps) {
           }}
         />
       </Card>
+
+      <div className="flex flex-col gap-2">
+        <h2 className="font-display text-foreground text-lg font-semibold">
+          Configuração do agente
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          Cada seção é salva automaticamente. Clique em &ldquo;Ver prompt&rdquo; ao final pra ver o
+          resultado.
+        </p>
+      </div>
+      <AgentWizardForm agentId={agent.id} initialDraft={agent.draftState} />
 
       <KnowledgeSection activeTenantId={ctx.activeTenantId} agentId={agent.id} canManage />
 
