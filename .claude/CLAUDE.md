@@ -38,6 +38,8 @@ Documentos específicos do portal:
 - @.claude/decisions.md — ADRs SÓ DO PORTAL (P001+)
 - @.claude/rules/architecture-portal.md — estrutura de pastas, convenções Next.js
 - @.claude/rules/testing-portal.md — convenções de teste no portal
+- @.claude/rules/design-portal.md — regras DURAS do design system Pekiart (tokens, composição, dual-theme)
+- @docs/design.md — princípios completos do design system
 
 Se `/root/telefonia-ia/` não existir nesta máquina, clone primeiro:
 ```

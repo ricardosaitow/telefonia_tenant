@@ -16,3 +16,15 @@ export const signupSchema = z.object({
 });
 
 export type SignupInput = z.infer<typeof signupSchema>;
+
+/**
+ * Login schema — sem regra de comprimento mínimo de senha (a regra existe no
+ * signup; quem já tem account pode ter senha curta legada). Só valida que os
+ * dois campos estão presentes; o argon2.verify resolve o resto.
+ */
+export const signinSchema = z.object({
+  email: z.string().email().max(255).trim().toLowerCase(),
+  password: z.string().min(1).max(256),
+});
+
+export type SigninInput = z.infer<typeof signinSchema>;

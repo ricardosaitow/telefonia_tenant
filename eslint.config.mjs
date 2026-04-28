@@ -40,6 +40,32 @@ const eslintConfig = defineConfig([
     },
   },
 
+  // Design system enforcement — bloqueia cor numerada Tailwind em features/app.
+  // Regra ancorada em ADR P003 + .claude/rules/design-portal.md.
+  // Tokens semânticos só (bg-card, text-accent-light, border-glass-border, etc).
+  // Componentes base em src/components/ui/ ainda podem ter cor numerada durante
+  // transição inicial — o lint roda só nas pastas onde features moram.
+  {
+    files: ["src/features/**/*.{ts,tsx}", "src/app/**/*.{ts,tsx}", "src/components/composed/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "Literal[value=/\\b(bg|text|border|ring|from|via|to|shadow|fill|stroke|outline|decoration|divide|placeholder|caret|accent)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d+\\b/]",
+          message:
+            "Cor Tailwind numerada proibida em src/features, src/app e composed (regra design-portal.md, ADR P003). Use tokens semânticos: bg-card, text-foreground, border-border, text-accent-light, bg-glass-bg, etc. Lista completa em docs/design.md §4.",
+        },
+        {
+          selector:
+            "TemplateElement[value.raw=/\\b(bg|text|border|ring|from|via|to|shadow|fill|stroke|outline|decoration|divide|placeholder|caret|accent)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d+\\b/]",
+          message:
+            "Cor Tailwind numerada proibida em template string (regra design-portal.md, ADR P003). Use tokens semânticos.",
+        },
+      ],
+    },
+  },
+
   // Desativa regras de format que conflitam com Prettier — DEVE vir por último
   prettier,
 
