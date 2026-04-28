@@ -81,7 +81,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/channels",
         icon: <Phone />,
         capability: "channel:manage",
-        comingSoon: true,
       },
       {
         label: "Roteamento",

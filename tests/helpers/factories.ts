@@ -15,6 +15,7 @@ import type {
   Agent,
   AgentVersion,
   AuditLog,
+  Channel,
   Department,
   Tenant,
   TenantMembership,
@@ -164,6 +165,27 @@ export async function makeAuditLog(input: MakeAuditLogInput): Promise<AuditLog> 
         action: input.action ?? "test.create",
         entityType: input.entityType ?? "test",
         entityId: input.entityId ?? id,
+      },
+    }),
+  );
+}
+
+export interface MakeChannelInput {
+  tenantId: string;
+  tipo?: "voice_did" | "whatsapp" | "email" | "webchat";
+  identificador?: string;
+  nomeAmigavel?: string;
+}
+
+export async function makeChannel(input: MakeChannelInput): Promise<Channel> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.channel.create({
+      data: {
+        tenantId: input.tenantId,
+        tipo: input.tipo ?? "voice_did",
+        identificador: input.identificador ?? `chan-${id.slice(0, 12)}`,
+        nomeAmigavel: input.nomeAmigavel ?? `Channel ${id.slice(0, 8)}`,
       },
     }),
   );

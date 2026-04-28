@@ -87,6 +87,7 @@ model Tenant {
   agents                Agent[]
   agentVersions         AgentVersion[]
   auditLogs             AuditLog[]
+  channels              Channel[]
 
   @@map("tenants")
 }
@@ -354,4 +355,60 @@ model AuditLog {
   @@index([accountId])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Channel — ponto de entrada de conversa (Ontologia §11). Modelo unificado:
+// voz / WhatsApp / email / webchat. Cada cliente tem N channels por tenant.
+//
+// Status segue ciclo provisioning → active → disabled/error. C3a entrega só
+// CRUD básico (status=active no create); workflow de provisioning real
+// (verificação WA, port-in DID) chega quando o data plane se integrar.
+//
+// `defaultRoutingRuleId` aponta pra UMA das próprias RoutingRule do channel
+// (FK self-referência via channel). Nullable — channel sem rule ainda não
+// roteia. RLS por tenant_id (D002).
+// ---------------------------------------------------------------------------
+model Channel {
+  id                    String         @id @default(uuid(7)) @db.Uuid
+  tenantId              String         @map("tenant_id") @db.Uuid
+
+  tipo                  ChannelType
+  identificador         String         // E.164, número WA, endereço email, etc
+  nomeAmigavel          String         @map("nome_amigavel")
+  status                ChannelStatus  @default(active)
+
+  // JSON livre por tipo. Validação caso-a-caso na Server Action / por tipo.
+  provisioningMetadata  Json?          @map("provisioning_metadata")
+
+  // Default rule pra roteamento (V1.x). Self-ref opcional via RoutingRule.
+  defaultRoutingRuleId  String?        @map("default_routing_rule_id") @db.Uuid
+
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // identificador único por tenant — evita 2 channels com mesmo DID/email/etc.
+  @@unique([tenantId, tipo, identificador])
+  @@index([tenantId])
+  @@map("channels")
+}
+
+enum ChannelType {
+  voice_did
+  whatsapp
+  email
+  webchat
+
+  @@map("channel_type")
+}
+
+enum ChannelStatus {
+  provisioning
+  active
+  error
+  disabled
+
+  @@map("channel_status")
 }
