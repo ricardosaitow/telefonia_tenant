@@ -3,6 +3,7 @@
 import { parseWithZod } from "@conform-to/zod";
 import { redirect } from "next/navigation";
 
+import { recordAuditInTx } from "@/lib/audit/record";
 import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
@@ -19,24 +20,36 @@ export async function createAgentAction(_prevState: unknown, formData: FormData)
   assertCan(ctx.membership.globalRole, "agent:manage");
 
   try {
-    await withTenantContext(ctx.activeTenantId, (tx) =>
-      tx.agent.create({
+    await withTenantContext(ctx.activeTenantId, async (tx) => {
+      const agent = await tx.agent.create({
         data: {
           tenantId: ctx.activeTenantId,
           departmentId: submission.value.departmentId,
           slug: slugifyAgentName(submission.value.nome),
           nome: submission.value.nome,
           descricao: submission.value.descricao ?? null,
-          // V1 — drafState mínimo. params/toolsConfig vêm em C3+.
           draftState: {
             systemPrompt: submission.value.systemPrompt,
             params: {},
             toolsConfig: [],
           },
-          // status default = draft (do schema).
         },
-      }),
-    );
+      });
+      await recordAuditInTx(
+        tx,
+        {
+          tenantId: ctx.activeTenantId,
+          accountId: ctx.account.id,
+          membershipId: ctx.membership.id,
+        },
+        {
+          action: "agent.create",
+          entityType: "agent",
+          entityId: agent.id,
+          after: agent,
+        },
+      );
+    });
   } catch (err) {
     if (
       typeof err === "object" &&

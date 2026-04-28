@@ -4,19 +4,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { publishAgentInTx } from "@/lib/agents/publish";
+import { recordAuditInTx } from "@/lib/audit/record";
 import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 
 const inputSchema = z.object({ id: z.string().uuid() });
 
-/**
- * Publica o Agent — cria nova AgentVersion (snapshot do draft) e marca
- * como production. Versão = max + 1 (incremental por Agent).
- *
- * Owner/admin/supervisor only. Falha se draft inválido (sem systemPrompt) —
- * por ora redirect /agents/[id] (UI deveria refletir erro inline em V1.5).
- */
 export async function publishAgentAction(formData: FormData) {
   const parsed = inputSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) redirect("/agents");
@@ -24,13 +18,27 @@ export async function publishAgentAction(formData: FormData) {
   const ctx = await assertSessionAndMembership();
   assertCan(ctx.membership.globalRole, "agent:manage");
 
-  await withTenantContext(ctx.activeTenantId, (tx) =>
-    publishAgentInTx(tx, {
+  await withTenantContext(ctx.activeTenantId, async (tx) => {
+    const result = await publishAgentInTx(tx, {
       agentId: parsed.data.id,
       tenantId: ctx.activeTenantId,
       publishedByAccountId: ctx.account.id,
-    }),
-  );
+    });
+    await recordAuditInTx(
+      tx,
+      {
+        tenantId: ctx.activeTenantId,
+        accountId: ctx.account.id,
+        membershipId: ctx.membership.id,
+      },
+      {
+        action: "agent.publish",
+        entityType: "agent_version",
+        entityId: result.versionId,
+        after: { agentId: parsed.data.id, version: result.version },
+      },
+    );
+  });
 
   redirect(`/agents/${parsed.data.id}`);
 }

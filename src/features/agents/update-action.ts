@@ -3,6 +3,7 @@
 import { parseWithZod } from "@conform-to/zod";
 import { redirect } from "next/navigation";
 
+import { recordAuditInTx } from "@/lib/audit/record";
 import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
@@ -18,17 +19,21 @@ export async function updateAgentAction(_prevState: unknown, formData: FormData)
   const ctx = await assertSessionAndMembership();
   assertCan(ctx.membership.globalRole, "agent:manage");
 
-  // Lê draft atual pra preservar params/toolsConfig (só sobrescreve systemPrompt).
   const result = await withTenantContext(ctx.activeTenantId, async (tx) => {
-    const current = await tx.agent.findUnique({
+    const before = await tx.agent.findUnique({
       where: { id: submission.value.id },
-      select: { draftState: true },
+      select: {
+        id: true,
+        nome: true,
+        descricao: true,
+        departmentId: true,
+        draftState: true,
+      },
     });
-    if (!current) return { count: 0 };
+    if (!before) return { count: 0 };
 
-    const draft = (current.draftState ?? {}) as Record<string, unknown>;
-
-    return tx.agent.updateMany({
+    const draft = (before.draftState ?? {}) as Record<string, unknown>;
+    const after = await tx.agent.update({
       where: { id: submission.value.id },
       data: {
         nome: submission.value.nome,
@@ -39,7 +44,32 @@ export async function updateAgentAction(_prevState: unknown, formData: FormData)
           systemPrompt: submission.value.systemPrompt,
         },
       },
+      select: {
+        id: true,
+        nome: true,
+        descricao: true,
+        departmentId: true,
+        draftState: true,
+      },
     });
+
+    await recordAuditInTx(
+      tx,
+      {
+        tenantId: ctx.activeTenantId,
+        accountId: ctx.account.id,
+        membershipId: ctx.membership.id,
+      },
+      {
+        action: "agent.update",
+        entityType: "agent",
+        entityId: after.id,
+        before,
+        after,
+      },
+    );
+
+    return { count: 1 };
   });
 
   if (result.count === 0) {

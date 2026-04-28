@@ -14,6 +14,7 @@ import type {
   Account,
   Agent,
   AgentVersion,
+  AuditLog,
   Department,
   Tenant,
   TenantMembership,
@@ -140,6 +141,29 @@ export async function makeAgentVersion(input: MakeAgentVersionInput): Promise<Ag
         toolsSnapshot: {},
         knowledgeSnapshot: {},
         publishedByAccountId: input.publishedByAccountId ?? null,
+      },
+    }),
+  );
+}
+
+export interface MakeAuditLogInput {
+  tenantId: string;
+  accountId?: string;
+  action?: string;
+  entityType?: string;
+  entityId?: string;
+}
+
+export async function makeAuditLog(input: MakeAuditLogInput): Promise<AuditLog> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.auditLog.create({
+      data: {
+        tenantId: input.tenantId,
+        accountId: input.accountId ?? null,
+        action: input.action ?? "test.create",
+        entityType: input.entityType ?? "test",
+        entityId: input.entityId ?? id,
       },
     }),
   );

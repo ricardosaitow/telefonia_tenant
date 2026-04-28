@@ -50,6 +50,7 @@ model Account {
   memberships        TenantMembership[]
   sessions           Session[]
   publishedAgentVersions AgentVersion[]
+  auditLogs          AuditLog[]
 
   @@map("accounts")
 }
@@ -85,6 +86,7 @@ model Tenant {
   departments           Department[]
   agents                Agent[]
   agentVersions         AgentVersion[]
+  auditLogs             AuditLog[]
 
   @@map("tenants")
 }
@@ -117,6 +119,7 @@ model TenantMembership {
 
   tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   account       Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  auditLogs     AuditLog[]
 
   @@unique([tenantId, accountId])
   @@index([tenantId])
@@ -299,4 +302,56 @@ model AgentVersion {
   @@index([tenantId])
   @@index([agentId])
   @@map("agent_versions")
+}
+
+// ---------------------------------------------------------------------------
+// AuditLog — registro append-only de ações privilegiadas (Ontologia §17,
+// docs/seguranca.md §5.7).
+//
+// Granularidade: 1 row por ação significativa (CRUD em entidade de
+// configuração, publish, mudança de role, conexão de integração, login...).
+// `action` é string composta tipo "department.create", "agent.publish".
+// `before`/`after` carregam JSON da entidade antes/depois (omitir senão).
+//
+// Cobertura V1: ações dentro de tenant (todas têm tenant_id obrigatório).
+// Eventos cross-tenant (login, signup global) ficam pra SecurityEvent
+// quando essa tabela for criada.
+//
+// Hash chain (anti-tampering, seguranca.md §5.7) fica pra V1.5 — adicionar
+// coluna `hash_prev` quando incident response evoluir.
+//
+// RLS por tenant_id (D002).
+// ---------------------------------------------------------------------------
+model AuditLog {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+
+  // Quem fez. Null se ação foi do sistema (job, migration, etc).
+  // SetNull em delete pra preservar histórico mesmo após apagar Account.
+  accountId    String?  @map("account_id") @db.Uuid
+  membershipId String?  @map("tenant_membership_id") @db.Uuid
+
+  action       String   // "department.create", "agent.publish", etc.
+  entityType   String   @map("entity_type") // "department", "agent", "agent_version"
+  entityId     String   @map("entity_id") @db.Uuid
+
+  // Snapshot antes/depois — opcional. Pra creates só `after`; deletes só
+  // `before`; updates ambos.
+  before       Json?
+  after        Json?
+
+  // Não capturados em V1 — chegam quando AccountActivity for implementado.
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account      Account?          @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  membership   TenantMembership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([accountId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
 }

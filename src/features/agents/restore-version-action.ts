@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import type { Prisma } from "@/generated/prisma/client";
+import { recordAuditInTx } from "@/lib/audit/record";
 import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
@@ -13,13 +14,6 @@ const inputSchema = z.object({
   versionId: z.string().uuid(),
 });
 
-/**
- * Rollback (D005): copia snapshot de uma AgentVersion antiga pro draftState
- * do Agent. NÃO publica automaticamente — user revisa o draft restaurado e
- * clica "Publicar" pra gerar nova version (incrementada).
- *
- * Owner/admin/supervisor only.
- */
 export async function restoreAgentVersionAction(formData: FormData) {
   const parsed = inputSchema.safeParse({
     agentId: formData.get("agentId"),
@@ -35,6 +29,7 @@ export async function restoreAgentVersionAction(formData: FormData) {
       where: { id: parsed.data.versionId },
       select: {
         agentId: true,
+        version: true,
         systemPrompt: true,
         params: true,
         toolsSnapshot: true,
@@ -52,6 +47,21 @@ export async function restoreAgentVersionAction(formData: FormData) {
         },
       },
     });
+
+    await recordAuditInTx(
+      tx,
+      {
+        tenantId: ctx.activeTenantId,
+        accountId: ctx.account.id,
+        membershipId: ctx.membership.id,
+      },
+      {
+        action: "agent.restore",
+        entityType: "agent",
+        entityId: parsed.data.agentId,
+        after: { restoredFromVersion: version.version },
+      },
+    );
   });
 
   redirect(`/agents/${parsed.data.agentId}`);

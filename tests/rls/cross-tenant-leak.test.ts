@@ -15,6 +15,7 @@
  *   - departments        (RLS no `tenant_id`)
  *   - agents             (RLS no `tenant_id`)
  *   - agent_versions     (RLS no `tenant_id` denormalizado)
+ *   - audit_logs         (RLS no `tenant_id`)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
  * sessions e per-account, sem tenant_id -- nao entra aqui.
@@ -26,6 +27,7 @@ import type {
   Account,
   Agent,
   AgentVersion,
+  AuditLog,
   Department,
   Tenant,
   TenantMembership,
@@ -35,6 +37,7 @@ import {
   makeAccount,
   makeAgent,
   makeAgentVersion,
+  makeAuditLog,
   makeDepartment,
   makeMembership,
   makeTenant,
@@ -50,6 +53,7 @@ let membershipAX: TenantMembership;
 let departmentA: Department;
 let agentA: Agent;
 let agentVersionA: AgentVersion;
+let auditLogA: AuditLog;
 
 beforeAll(async () => {
   // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
@@ -78,12 +82,21 @@ beforeAll(async () => {
     tenantId: tenantA.id,
     publishedByAccountId: accountX.id,
   });
+  auditLogA = await makeAuditLog({
+    tenantId: tenantA.id,
+    accountId: accountX.id,
+    action: "department.create",
+    entityType: "department",
+    entityId: departmentA.id,
+  });
 });
 
 afterAll(async () => {
   // Limpa pra nao poluir runs subsequentes do mesmo container.
-  // Ordem FK: agent_versions -> agents -> departments -> memberships -> tenants -> accounts.
+  // Ordem FK: audit_logs -> agent_versions -> agents -> departments
+  //         -> memberships -> tenants -> accounts.
   await migratorPrisma().$transaction(async (tx) => {
+    await tx.auditLog.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.agentVersion.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.agent.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.department.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
@@ -284,6 +297,42 @@ describe("RLS: agent_versions", () => {
   });
 });
 
+describe("RLS: audit_logs", () => {
+  it("tenant B nao enxerga audit_log do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.auditLog.findUnique({ where: { id: auditLogA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany audit_log do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.auditLog.updateMany({
+        where: { id: auditLogA.id },
+        data: { action: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().auditLog.findUnique({
+      where: { id: auditLogA.id },
+    });
+    expect(reread?.action).toBe(auditLogA.action);
+  });
+
+  it("tenant B nao consegue deleteMany audit_log do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.auditLog.deleteMany({ where: { id: auditLogA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().auditLog.findUnique({
+      where: { id: auditLogA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
     const list = await appPrisma().tenant.findMany({
@@ -311,6 +360,11 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
 
   it("sem app.current_tenant setado, agent_versions devolve 0 rows", async () => {
     const list = await appPrisma().agentVersion.findMany({ where: { id: agentVersionA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, audit_logs devolve 0 rows", async () => {
+    const list = await appPrisma().auditLog.findMany({ where: { id: auditLogA.id } });
     expect(list).toEqual([]);
   });
 });

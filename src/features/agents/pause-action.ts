@@ -3,25 +3,16 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { recordAuditInTx } from "@/lib/audit/record";
 import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 
 const inputSchema = z.object({
   id: z.string().uuid(),
-  /** "pause" → status=paused; "resume" → status=production. */
   intent: z.enum(["pause", "resume"]),
 });
 
-/**
- * Toggle pausa do Agent.
- *
- * - pause: production → paused (runtime para de usar este agente).
- * - resume: paused → production (precisa currentVersionId; se não tiver,
- *   noop; UI deveria oferecer publish).
- *
- * Owner/admin/supervisor only.
- */
 export async function pauseAgentAction(formData: FormData) {
   const parsed = inputSchema.safeParse({
     id: formData.get("id"),
@@ -33,14 +24,15 @@ export async function pauseAgentAction(formData: FormData) {
   assertCan(ctx.membership.globalRole, "agent:manage");
 
   await withTenantContext(ctx.activeTenantId, async (tx) => {
+    let count = 0;
     if (parsed.data.intent === "pause") {
-      await tx.agent.updateMany({
+      const r = await tx.agent.updateMany({
         where: { id: parsed.data.id, status: "production" },
         data: { status: "paused" },
       });
+      count = r.count;
     } else {
-      // resume só faz sentido se já tem currentVersionId.
-      await tx.agent.updateMany({
+      const r = await tx.agent.updateMany({
         where: {
           id: parsed.data.id,
           status: "paused",
@@ -48,6 +40,23 @@ export async function pauseAgentAction(formData: FormData) {
         },
         data: { status: "production" },
       });
+      count = r.count;
+    }
+
+    if (count > 0) {
+      await recordAuditInTx(
+        tx,
+        {
+          tenantId: ctx.activeTenantId,
+          accountId: ctx.account.id,
+          membershipId: ctx.membership.id,
+        },
+        {
+          action: parsed.data.intent === "pause" ? "agent.pause" : "agent.resume",
+          entityType: "agent",
+          entityId: parsed.data.id,
+        },
+      );
     }
   });
 

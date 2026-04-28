@@ -3,19 +3,13 @@
 import { parseWithZod } from "@conform-to/zod";
 import { redirect } from "next/navigation";
 
+import { recordAuditInTx } from "@/lib/audit/record";
 import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 
 import { departmentInputSchema, slugifyDepartmentName } from "./schemas";
 
-/**
- * Cria Department no tenant ativo. Owner/admin only.
- *
- * P2002 (slug duplicado por @@unique [tenantId, slug]) → erro de form.
- * Não revela "já existe departamento X" pra preservar consistência com
- * outras Server Actions; mensagem genérica suficiente.
- */
 export async function createDepartmentAction(_prevState: unknown, formData: FormData) {
   const submission = parseWithZod(formData, { schema: departmentInputSchema });
   if (submission.status !== "success") {
@@ -26,16 +20,30 @@ export async function createDepartmentAction(_prevState: unknown, formData: Form
   assertCan(ctx.membership.globalRole, "department:manage");
 
   try {
-    await withTenantContext(ctx.activeTenantId, (tx) =>
-      tx.department.create({
+    await withTenantContext(ctx.activeTenantId, async (tx) => {
+      const dept = await tx.department.create({
         data: {
           tenantId: ctx.activeTenantId,
           slug: slugifyDepartmentName(submission.value.nome),
           nome: submission.value.nome,
           descricao: submission.value.descricao ?? null,
         },
-      }),
-    );
+      });
+      await recordAuditInTx(
+        tx,
+        {
+          tenantId: ctx.activeTenantId,
+          accountId: ctx.account.id,
+          membershipId: ctx.membership.id,
+        },
+        {
+          action: "department.create",
+          entityType: "department",
+          entityId: dept.id,
+          after: dept,
+        },
+      );
+    });
   } catch (err) {
     if (
       typeof err === "object" &&
