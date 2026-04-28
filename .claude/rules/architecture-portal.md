@@ -105,6 +105,20 @@ Para canais e integrações novas (WA, email, ERP, CRM): cada uma é um plugin c
 
 Esse padrão é o que torna escalar de "voz" pra "voz+WA+email+ERP" possível sem reescrever core.
 
+## Queries com RLS — escolha do client correto
+
+Toda query do portal cai em UMA dessas 3 categorias. Errar = bug silencioso (RLS retorna 0 rows quando "deveria" retornar dados, e tudo passa nos testes RLS porque eles testam o INVERSO).
+
+| Categoria | Quando | Client | Fronteira de segurança |
+|---|---|---|---|
+| **Tenant-scoped** | Dentro do portal logado, lendo/escrevendo qualquer tabela com `tenant_id` | `withTenantContext(activeTenantId, tx => tx.X.Y(...))` | RLS no DB |
+| **Pré-tenant (account-scoped)** | Lookup de memberships do user pra picker; verificação "user X tem acesso ao tenant Y?"; signup; criação de tenant | `prismaAdmin` (DATABASE_URL_MIGRATE, BYPASSRLS) | Filtro `where: { accountId }` no caller, com `accountId` vindo de `assertSession()` |
+| **Tabelas globais sem RLS** | Account, Session | `prisma` (app_user, sem ceremony) | Filtro `where: { id/sessionToken }` é sufficiente |
+
+**NUNCA** usar `prisma` (app_user) direto em tabela com RLS sem antes setar `app.current_tenant` via `withTenantContext`. Vai retornar `null`/`[]` silenciosamente. Bug clássico — debugado por logs DB, não por testes RLS atuais.
+
+**`prismaAdmin` é restrito** a `src/features/auth/**`, `src/features/tenants/create-tenant-action.ts`, `src/lib/onboarding/**`. Outros usos exigem ADR.
+
 ## Anti-padrões (NUNCA)
 
 - Server Action exportada sem `assertSession`/`assertPermission` no início.
@@ -113,3 +127,5 @@ Esse padrão é o que torna escalar de "voz" pra "voz+WA+email+ERP" possível se
 - Imports relativos longos (`../../../`); usar path alias.
 - `any` sem comentário justificando.
 - Mexer em RLS/auth direto em código de feature; tudo via helpers de `lib/`.
+- **Query em tabela com `tenant_id` via `prisma` direto** (não `withTenantContext`) — RLS retorna `[]` silencioso e parece bug de dados.
+- **`prismaAdmin` fora de `src/features/auth/**` e `src/features/tenants/create-tenant-action.ts`** — bypass RLS é o último recurso, não default.

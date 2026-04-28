@@ -1,20 +1,26 @@
 "use server";
 
 import { hashPassword } from "@/lib/auth/argon2";
-import { prisma } from "@/lib/db/client";
+import { prismaAdmin } from "@/lib/db/admin-client";
+import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
 import { actionClient } from "@/lib/safe-action";
 
 import { signupSchema } from "./schemas";
 
 /**
- * Signup — cria Account global (D004). NÃO faz auto-login: signin é fluxo
- * separado via NextAuth `signIn("credentials", ...)` (vem em 8b com a UI).
+ * Signup — cria Account + Tenant + Membership owner ATOMICAMENTE.
  *
- * Este módulo deliberadamente NÃO importa nada de NextAuth — assim pode ser
- * testado em ambiente Node puro (Vitest) sem precisar resolver `next/server`.
+ * - Account é global (D004); Tenant + Membership precisam de privilégio pra
+ *   bypass RLS no INSERT. Por isso usa `prismaAdmin` — escopo restrito a este
+ *   fluxo administrativo.
+ * - Transação garante atomicidade.
+ * - Não retorna info que diferencie "email já existe" de outras falhas
+ *   (anti-enumeration). P2002 → silently ok, NENHUM tenant é criado pra email
+ *   duplicado (a transação já abortou).
  *
- * NÃO retorna info que distinga "email já existe" de outras falhas (evita
- * enumeration — docs/seguranca.md §5.5).
+ * Não faz auto-login. Após signup, redireciona pra /login (em signupFormAction).
+ *
+ * Este módulo NÃO importa nada de NextAuth — testável em vitest puro.
  */
 export const signupAction = actionClient
   .inputSchema(signupSchema)
@@ -22,13 +28,20 @@ export const signupAction = actionClient
     const passwordHash = await hashPassword(parsedInput.password);
 
     try {
-      await prisma.account.create({
-        data: {
-          email: parsedInput.email,
-          passwordHash,
-          nome: parsedInput.nome,
+      await prismaAdmin.$transaction(async (tx) => {
+        const account = await tx.account.create({
+          data: {
+            email: parsedInput.email,
+            passwordHash,
+            nome: parsedInput.nome,
+            locale: parsedInput.locale,
+          },
+        });
+        await createTenantWithOwnerInTx(tx, {
+          accountId: account.id,
+          nomeTenant: parsedInput.nomeTenant,
           locale: parsedInput.locale,
-        },
+        });
       });
     } catch (err) {
       if (

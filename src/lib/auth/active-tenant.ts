@@ -1,9 +1,10 @@
+import { prismaAdmin } from "@/lib/db/admin-client";
 import { prisma } from "@/lib/db/client";
 
 /**
- * Atualiza o tenant ativo da sessão (atomicamente). Quem chama precisa ter
- * verificado antes que o accountId tem membership ATIVA no tenantId — fazer
- * isso aqui acoplaria demais; deixa pra Server Action que sabe o contexto.
+ * Atualiza o tenant ativo da sessão. `sessions` NÃO tem RLS (por-account),
+ * então usa `prisma` (app_user) normal — `where: { sessionToken }` é a
+ * fronteira de segurança.
  *
  * Passar `tenantId = null` desativa a seleção (volta pra picker).
  */
@@ -18,11 +19,21 @@ export async function setActiveTenant(
 }
 
 /**
- * Lista memberships ATIVOS do account, com o Tenant joinado, ordenados pra UI
- * (último ativo primeiro). Cada item carrega o suficiente pra renderizar o picker.
+ * Lista memberships ATIVOS do account, com Tenant joinado, ordenados pra UI.
+ *
+ * !!! USA prismaAdmin (BYPASS RLS) !!!
+ *
+ * Isso é uma query pré-tenant (account-scoped) — não há `app.current_tenant`
+ * pra setar antes (o user ainda nem escolheu o tenant; é justamente este
+ * lookup que viabiliza a escolha). Se rodar como app_user, a policy de
+ * `tenant_memberships` (`tenant_id = current_setting('app.current_tenant')`)
+ * filtra fora todas as memberships -> retorna [] sempre.
+ *
+ * Fronteira de segurança: `where: { accountId }`. Caller é responsável por
+ * passar SOMENTE o accountId da sessão validada (`assertSession`).
  */
 export async function listAccountMemberships(accountId: string) {
-  return prisma.tenantMembership.findMany({
+  return prismaAdmin.tenantMembership.findMany({
     where: { accountId, status: "active" },
     select: {
       id: true,

@@ -153,36 +153,72 @@ describe("session DB-backed", () => {
   });
 });
 
-describe("signupAction", () => {
-  it("cria Account com hash argon2id no DB", async () => {
+describe("signupAction (onboarding)", () => {
+  it("cria Account + Tenant + Membership owner atomicamente", async () => {
     const email = `signup-${randomUUID()}@test.local`;
     const result = await signupAction({
       email,
       password: "senha-de-signup-12345", // gitleaks:allow
       nome: "Signup Teste",
+      nomeTenant: "Signup Co",
     });
 
     expect(result?.data?.ok).toBe(true);
 
-    const account = await asMigrator((tx) => tx.account.findUnique({ where: { email } }));
+    const account = await asMigrator((tx) =>
+      tx.account.findUnique({
+        where: { email },
+        include: { memberships: { include: { tenant: true } } },
+      }),
+    );
     expect(account).not.toBeNull();
     expect(account?.passwordHash).toMatch(/^\$argon2id\$/);
     expect(account?.nome).toBe("Signup Teste");
-    expect(account?.locale).toBe("pt-BR");
+    expect(account?.memberships).toHaveLength(1);
+
+    const membership = account!.memberships[0]!;
+    expect(membership.globalRole).toBe("tenant_owner");
+    expect(membership.status).toBe("active");
+    expect(membership.tenant.nomeFantasia).toBe("Signup Co");
+    expect(membership.tenant.status).toBe("trial");
+    expect(membership.tenant.slug).toMatch(/^signup-co-[a-z0-9]+$/);
   });
 
-  it("idempotente: email duplicado retorna ok sem revelar conflito", async () => {
+  it("idempotente: email duplicado retorna ok e NÃO cria tenant órfão", async () => {
     const email = `dup-${randomUUID()}@test.local`;
-    const r1 = await signupAction({ email, password: "senha-aaaa-12345", nome: "Primeiro" });
-    const r2 = await signupAction({ email, password: "senha-bbbb-12345", nome: "Segundo" });
+    const r1 = await signupAction({
+      email,
+      password: "senha-aaaa-12345", // gitleaks:allow
+      nome: "Primeiro",
+      nomeTenant: "Primeira Co",
+    });
+    const r2 = await signupAction({
+      email,
+      password: "senha-bbbb-12345", // gitleaks:allow
+      nome: "Segundo",
+      nomeTenant: "Segunda Co",
+    });
 
     expect(r1?.data?.ok).toBe(true);
     expect(r2?.data?.ok).toBe(true);
 
-    // Sanity: só um registro foi criado e o nome é do primeiro signup.
-    const accounts = await asMigrator((tx) => tx.account.findMany({ where: { email } }));
+    // Só 1 Account com esse email + só 1 Tenant criado por essa Account.
+    const accounts = await asMigrator((tx) =>
+      tx.account.findMany({
+        where: { email },
+        include: { memberships: { include: { tenant: true } } },
+      }),
+    );
     expect(accounts).toHaveLength(1);
     expect(accounts[0]?.nome).toBe("Primeiro");
+    expect(accounts[0]?.memberships).toHaveLength(1);
+    expect(accounts[0]?.memberships[0]?.tenant.nomeFantasia).toBe("Primeira Co");
+
+    // Sanity adicional: NÃO existe tenant "Segunda Co" criado órfão.
+    const orfao = await asMigrator((tx) =>
+      tx.tenant.findFirst({ where: { nomeFantasia: "Segunda Co" } }),
+    );
+    expect(orfao).toBeNull();
   });
 
   it("rejeita password curta via Zod (validationErrors)", async () => {
@@ -191,6 +227,18 @@ describe("signupAction", () => {
       email,
       password: "curta",
       nome: "Teste",
+      nomeTenant: "Teste Co",
+    });
+    expect(result?.data?.ok).toBeUndefined();
+    expect(result?.validationErrors).toBeDefined();
+  });
+
+  it("rejeita nomeTenant vazio via Zod", async () => {
+    const result = await signupAction({
+      email: `empty-tenant-${randomUUID()}@test.local`,
+      password: "senha-valida-12345", // gitleaks:allow
+      nome: "Teste",
+      nomeTenant: "",
     });
     expect(result?.data?.ok).toBeUndefined();
     expect(result?.validationErrors).toBeDefined();

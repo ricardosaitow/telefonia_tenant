@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { UserMenu } from "@/components/composed/user-menu";
-import { prisma } from "@/lib/db/client";
+import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSession, TenantNotSelectedError } from "@/lib/rbac";
 
 /**
@@ -25,10 +25,16 @@ export default async function PortalLayout({ children }: Readonly<{ children: Re
     throw new TenantNotSelectedError();
   }
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: ctx.activeTenantId },
-    select: { slug: true, nomeFantasia: true },
-  });
+  // Lê via withTenantContext: seta `app.current_tenant = activeTenantId`
+  // ANTES da query — aí RLS de `tenants` (id = current_setting) aceita.
+  // Sem isso, app_user com RLS retorna null e o redirect /tenants entra em
+  // loop infinito (regra arquitetural — multi-tenant.md §4).
+  const tenant = await withTenantContext(ctx.activeTenantId, (tx) =>
+    tx.tenant.findUnique({
+      where: { id: ctx.activeTenantId! },
+      select: { slug: true, nomeFantasia: true },
+    }),
+  );
   // Tenant deletado / membership removida desde o login → volta pro picker.
   if (!tenant) redirect("/tenants");
 

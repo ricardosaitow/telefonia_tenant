@@ -33,7 +33,7 @@ export function SignupForm() {
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.nome.id}>Nome</Label>
+        <Label htmlFor={fields.nome.id}>Seu nome</Label>
         <Input
           {...getInputProps(fields.nome, { type: "text" })}
           key={fields.nome.key}
@@ -42,6 +42,22 @@ export function SignupForm() {
         />
         {fields.nome.errors?.length ? (
           <p className="text-destructive text-sm">{fields.nome.errors.join(" ")}</p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={fields.nomeTenant.id}>Nome da empresa</Label>
+        <Input
+          {...getInputProps(fields.nomeTenant, { type: "text" })}
+          key={fields.nomeTenant.key}
+          autoComplete="organization"
+          required
+        />
+        <p className="text-muted-foreground text-xs">
+          Vira o tenant inicial e você fica como owner. Pode trocar depois.
+        </p>
+        {fields.nomeTenant.errors?.length ? (
+          <p className="text-destructive text-sm">{fields.nomeTenant.errors.join(" ")}</p>
         ) : null}
       </div>
 

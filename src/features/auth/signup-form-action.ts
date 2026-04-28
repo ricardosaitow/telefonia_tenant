@@ -4,18 +4,18 @@ import { parseWithZod } from "@conform-to/zod";
 import { redirect } from "next/navigation";
 
 import { hashPassword } from "@/lib/auth/argon2";
-import { prisma } from "@/lib/db/client";
+import { prismaAdmin } from "@/lib/db/admin-client";
+import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
 
 import { signupSchema } from "./schemas";
 
 /**
- * Versão Conform do signupAction: recebe (prevState, formData), parsea com
- * Zod via Conform e replica erros pro form. Convive com `signupAction`
- * (next-safe-action) — esta é a versão pra forms HTML5, aquela é pra chamada
- * programática (test/integration).
+ * Versão Conform do signup. Mesma lógica de signupAction (criação atômica
+ * Account + Tenant + Membership owner via prismaAdmin), mas no formato
+ * `useActionState` + `parseWithZod`. Sucesso → redirect /login?signup=ok.
  *
- * Não revela "email já existe" — em caso de P2002 redireciona pra /login com
- * flag, igualando o caminho feliz (mitiga enumeration via mensagem).
+ * P2002 (email duplicado) ou outras falhas → silently redirect mesmo
+ * (anti-enumeration). Toda transação aborta atomicamente; nenhum tenant órfão.
  */
 export async function signupFormAction(_prevState: unknown, formData: FormData) {
   const submission = parseWithZod(formData, { schema: signupSchema });
@@ -26,13 +26,20 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
   const passwordHash = await hashPassword(submission.value.password);
 
   try {
-    await prisma.account.create({
-      data: {
-        email: submission.value.email,
-        passwordHash,
-        nome: submission.value.nome,
+    await prismaAdmin.$transaction(async (tx) => {
+      const account = await tx.account.create({
+        data: {
+          email: submission.value.email,
+          passwordHash,
+          nome: submission.value.nome,
+          locale: submission.value.locale,
+        },
+      });
+      await createTenantWithOwnerInTx(tx, {
+        accountId: account.id,
+        nomeTenant: submission.value.nomeTenant,
         locale: submission.value.locale,
-      },
+      });
     });
   } catch (err) {
     if (
@@ -41,7 +48,6 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
       "code" in err &&
       (err as { code: string }).code === "P2002"
     ) {
-      // Caminho feliz: redireciona igual ao sucesso pra não vazar conflito.
       redirect("/login?signup=ok");
     }
     throw err;

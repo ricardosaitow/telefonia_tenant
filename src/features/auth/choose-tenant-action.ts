@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { setActiveTenant } from "@/lib/auth/active-tenant";
-import { prisma } from "@/lib/db/client";
+import { prismaAdmin } from "@/lib/db/admin-client";
 import { assertSession } from "@/lib/rbac";
 
 const inputSchema = z.object({
@@ -15,11 +15,14 @@ const inputSchema = z.object({
  * Atomic: valida que o user tem membership ATIVO no tenant solicitado, então
  * seta `activeTenantId` na sessão. Redireciona pra /dashboard no fim.
  *
- * Não usa next-safe-action aqui pra simplificar (form HTML5 → POST direto).
- * Validação Zod manual.
+ * !!! Lookup via prismaAdmin (BYPASS RLS) !!!
  *
- * Se membership não existir / estiver inativo: silently redirect pra /tenants
- * (o user vê a lista vazia / sem aquele tenant — fail-closed).
+ * Mesma razão de listAccountMemberships: query pré-tenant. Sem
+ * `app.current_tenant`, RLS de tenant_memberships filtra fora todos os rows.
+ * Fronteira de segurança: `where: { accountId, tenantId }` — accountId vem
+ * de assertSession() (sessão validada).
+ *
+ * Se membership não existir / estiver inativo: silently redirect /tenants.
  */
 export async function chooseTenantAction(formData: FormData) {
   const ctx = await assertSession();
@@ -27,7 +30,7 @@ export async function chooseTenantAction(formData: FormData) {
   const parsed = inputSchema.safeParse({ tenantId: formData.get("tenantId") });
   if (!parsed.success) redirect("/tenants");
 
-  const membership = await prisma.tenantMembership.findFirst({
+  const membership = await prismaAdmin.tenantMembership.findFirst({
     where: {
       accountId: ctx.account.id,
       tenantId: parsed.data.tenantId,
@@ -38,7 +41,7 @@ export async function chooseTenantAction(formData: FormData) {
   if (!membership) redirect("/tenants");
 
   await setActiveTenant(ctx.sessionToken, parsed.data.tenantId);
-  await prisma.tenantMembership.update({
+  await prismaAdmin.tenantMembership.update({
     where: { id: membership.id },
     data: { lastActiveAt: new Date() },
   });
