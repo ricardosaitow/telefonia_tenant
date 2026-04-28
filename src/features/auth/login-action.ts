@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 
 import { signIn } from "@/lib/auth/config";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getClientIp, getUserAgent } from "@/lib/security/client-info";
+import { recordSecurityEvent } from "@/lib/security/event";
 
 import { signinSchema } from "./schemas";
 
@@ -22,6 +25,29 @@ export async function loginAction(_prevState: unknown, formData: FormData) {
   const submission = parseWithZod(formData, { schema: signinSchema });
   if (submission.status !== "success") {
     return submission.reply();
+  }
+
+  // Rate limit por IP — 10/min (seguranca.md §5.5).
+  const ip = await getClientIp();
+  const ua = await getUserAgent();
+  const rl = await checkRateLimit({
+    key: `login:${ip}`,
+    limit: RATE_LIMITS.LOGIN.limit,
+    windowSec: RATE_LIMITS.LOGIN.windowSec,
+  });
+  if (!rl.ok) {
+    void recordSecurityEvent({
+      severity: "high",
+      category: "rate_limit",
+      eventType: "login_rate_limited",
+      description: `Excedeu ${RATE_LIMITS.LOGIN.limit} tentativas/min`,
+      ipAddress: ip,
+      userAgent: ua,
+      metadata: { email: submission.value.email },
+    });
+    return submission.reply({
+      formErrors: [`Muitas tentativas. Aguarde ${rl.resetSec}s.`],
+    });
   }
 
   try {

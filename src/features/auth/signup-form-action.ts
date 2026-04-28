@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { hashPassword } from "@/lib/auth/argon2";
 import { prismaAdmin } from "@/lib/db/admin-client";
 import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getClientIp, getUserAgent } from "@/lib/security/client-info";
 import { recordSecurityEvent, recordSecurityEventInTx } from "@/lib/security/event";
 
 import { signupSchema } from "./schemas";
@@ -22,6 +24,28 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
   const submission = parseWithZod(formData, { schema: signupSchema });
   if (submission.status !== "success") {
     return submission.reply();
+  }
+
+  // Rate limit por IP — signup é caro (cria tenant + memberhsip).
+  const ip = await getClientIp();
+  const ua = await getUserAgent();
+  const rl = await checkRateLimit({
+    key: `signup:${ip}`,
+    limit: RATE_LIMITS.SIGNUP.limit,
+    windowSec: RATE_LIMITS.SIGNUP.windowSec,
+  });
+  if (!rl.ok) {
+    void recordSecurityEvent({
+      severity: "high",
+      category: "rate_limit",
+      eventType: "signup_rate_limited",
+      description: `Excedeu ${RATE_LIMITS.SIGNUP.limit} signups/min`,
+      ipAddress: ip,
+      userAgent: ua,
+    });
+    return submission.reply({
+      formErrors: [`Muitas tentativas de cadastro. Aguarde ${rl.resetSec}s.`],
+    });
   }
 
   const passwordHash = await hashPassword(submission.value.password);
