@@ -25,10 +25,11 @@ export const authConfigEdge: NextAuthConfig = {
       const path = nextUrl.pathname;
 
       const isAuthPage = path === "/login" || path === "/signup";
-      const isPostLogin = path === "/tenants";
-      const isPortal = path.startsWith("/dashboard");
 
-      if ((isPostLogin || isPortal) && !isLoggedIn) {
+      // Tudo que NÃO é auth page exige login (matcher do proxy já filtra
+      // assets/api). Cobre /tenants, /dashboard, /departments, e qualquer
+      // futura rota do portal sem precisar manter lista aqui.
+      if (!isAuthPage && !isLoggedIn) {
         const url = nextUrl.clone();
         url.pathname = "/login";
         url.search = "";
