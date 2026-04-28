@@ -99,7 +99,6 @@ const GROUPS: SidebarGroup[] = [
         href: "/templates",
         icon: <MessageSquareQuote />,
         capability: "template:manage",
-        comingSoon: true,
       },
     ],
   },
