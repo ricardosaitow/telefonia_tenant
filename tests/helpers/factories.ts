@@ -28,6 +28,9 @@ import type {
   KnowledgeSource,
   MessageTemplate,
   RoutingRule,
+  SecurityCategory,
+  SecurityEvent,
+  SecuritySeverity,
   Tenant,
   TenantMembership,
   Turn,
@@ -437,6 +440,33 @@ export async function makeConversationIntervention(
         tenantId: input.tenantId,
         operatorAccountId: input.operatorAccountId,
         modeEntered: input.modeEntered ?? "observing",
+      },
+    }),
+  );
+}
+
+export interface MakeSecurityEventInput {
+  /** Null pra evento pré-tenant (signup, login fail). */
+  tenantId?: string | null;
+  accountId?: string | null;
+  severity?: SecuritySeverity;
+  category?: SecurityCategory;
+  eventType?: string;
+  description?: string;
+}
+
+export async function makeSecurityEvent(
+  input: MakeSecurityEventInput = {},
+): Promise<SecurityEvent> {
+  return asMigrator((tx) =>
+    tx.securityEvent.create({
+      data: {
+        tenantId: input.tenantId ?? null,
+        accountId: input.accountId ?? null,
+        severity: input.severity ?? "info",
+        category: input.category ?? "authn",
+        eventType: input.eventType ?? "test_event",
+        description: input.description ?? null,
       },
     }),
   );

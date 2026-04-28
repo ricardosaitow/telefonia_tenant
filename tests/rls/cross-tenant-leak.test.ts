@@ -30,6 +30,7 @@
  *   - conversation_agent_history (RLS no `tenant_id` denormalizado)
  *   - conversation_intervention  (RLS no `tenant_id` denormalizado)
  *   - turns              (RLS no `tenant_id` denormalizado)
+ *   - security_events    (RLS no `tenant_id` nullable -- null fica fora pra app_user)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
  * sessions e per-account, sem tenant_id -- nao entra aqui.
@@ -55,6 +56,7 @@ import type {
   KnowledgeSource,
   MessageTemplate,
   RoutingRule,
+  SecurityEvent,
   Tenant,
   TenantMembership,
   Turn,
@@ -79,6 +81,7 @@ import {
   makeMembership,
   makeMessageTemplate,
   makeRoutingRule,
+  makeSecurityEvent,
   makeTenant,
   makeTurn,
 } from "../helpers/factories";
@@ -107,6 +110,8 @@ let waDataA: ConversationWhatsappData;
 let agentHistoryA: ConversationAgentHistory;
 let interventionA: ConversationIntervention;
 let turnA: Turn;
+let securityEventA: SecurityEvent;
+let securityEventGlobal: SecurityEvent;
 
 beforeAll(async () => {
   // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
@@ -198,6 +203,22 @@ beforeAll(async () => {
     conversationId: conversationA.id,
     tenantId: tenantA.id,
   });
+  securityEventA = await makeSecurityEvent({
+    tenantId: tenantA.id,
+    accountId: accountX.id,
+    severity: "info",
+    category: "authn",
+    eventType: "login_success",
+  });
+  // Evento global (sem tenant) -- p.ex. login fail antes de ter tenant ativo.
+  // Deve ser invisível pra QUALQUER app_user (RLS exige tenant_id IS NOT NULL).
+  securityEventGlobal = await makeSecurityEvent({
+    tenantId: null,
+    severity: "low",
+    category: "authn",
+    eventType: "login_fail",
+    description: "Email não cadastrado",
+  });
 });
 
 afterAll(async () => {
@@ -240,6 +261,11 @@ afterAll(async () => {
     await tx.channel.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.tenantMembership.deleteMany({
       where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    // SecurityEvent: limpa o global manualmente (não tem tenantId pra cascade);
+    // os com tenantId caem via CASCADE quando apagar o tenant.
+    await tx.securityEvent.deleteMany({
+      where: { id: { in: [securityEventA.id, securityEventGlobal.id] } },
     });
     await tx.tenant.deleteMany({ where: { id: { in: [tenantA.id, tenantB.id] } } });
     await tx.account.deleteMany({ where: { id: { in: [accountX.id, accountY.id] } } });
@@ -790,6 +816,71 @@ describe("RLS: turns", () => {
   });
 });
 
+describe("RLS: security_events", () => {
+  it("tenant B nao enxerga security_event do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.securityEvent.findUnique({ where: { id: securityEventA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany security_event do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.securityEvent.updateMany({
+        where: { id: securityEventA.id },
+        data: { resolutionNote: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().securityEvent.findUnique({
+      where: { id: securityEventA.id },
+    });
+    expect(reread?.resolutionNote).toBeNull();
+  });
+
+  it("tenant B nao consegue deleteMany security_event do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.securityEvent.deleteMany({ where: { id: securityEventA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().securityEvent.findUnique({
+      where: { id: securityEventA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga seu proprio security_event", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.securityEvent.findUnique({ where: { id: securityEventA.id } }),
+    );
+    expect(found?.id).toBe(securityEventA.id);
+  });
+
+  it("eventos globais (tenant_id NULL) sao invisiveis pra app_user mesmo COM contexto", async () => {
+    // RLS exige tenant_id IS NOT NULL na clausula USING. Eventos globais so
+    // sao visiveis via prismaAdmin (admin Pekiart). Garantia explicita aqui.
+    const fromA = await asTenant(tenantA.id, (tx) =>
+      tx.securityEvent.findUnique({ where: { id: securityEventGlobal.id } }),
+    );
+    expect(fromA).toBeNull();
+
+    const fromB = await asTenant(tenantB.id, (tx) =>
+      tx.securityEvent.findUnique({ where: { id: securityEventGlobal.id } }),
+    );
+    expect(fromB).toBeNull();
+  });
+
+  it("admin (migratorPrisma) enxerga eventos globais", async () => {
+    const found = await migratorPrisma().securityEvent.findUnique({
+      where: { id: securityEventGlobal.id },
+    });
+    expect(found?.id).toBe(securityEventGlobal.id);
+    expect(found?.tenantId).toBeNull();
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
     const list = await appPrisma().tenant.findMany({
@@ -868,6 +959,13 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
 
   it("sem app.current_tenant setado, turns devolve 0 rows", async () => {
     const list = await appPrisma().turn.findMany({ where: { id: turnA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, security_events devolve 0 rows (incluindo globais)", async () => {
+    const list = await appPrisma().securityEvent.findMany({
+      where: { id: { in: [securityEventA.id, securityEventGlobal.id] } },
+    });
     expect(list).toEqual([]);
   });
 });

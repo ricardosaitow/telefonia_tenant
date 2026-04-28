@@ -4,6 +4,7 @@ import { hashPassword } from "@/lib/auth/argon2";
 import { prismaAdmin } from "@/lib/db/admin-client";
 import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
 import { actionClient } from "@/lib/safe-action";
+import { recordSecurityEvent, recordSecurityEventInTx } from "@/lib/security/event";
 
 import { signupSchema } from "./schemas";
 
@@ -37,10 +38,18 @@ export const signupAction = actionClient
             locale: parsedInput.locale,
           },
         });
-        await createTenantWithOwnerInTx(tx, {
+        const tenant = await createTenantWithOwnerInTx(tx, {
           accountId: account.id,
           nomeTenant: parsedInput.nomeTenant,
           locale: parsedInput.locale,
+        });
+        await recordSecurityEventInTx(tx, {
+          severity: "info",
+          category: "authn",
+          eventType: "signup_success",
+          accountId: account.id,
+          tenantId: tenant.id,
+          metadata: { email: parsedInput.email, tenantName: parsedInput.nomeTenant },
         });
       });
     } catch (err) {
@@ -50,6 +59,14 @@ export const signupAction = actionClient
         "code" in err &&
         (err as { code: string }).code === "P2002"
       ) {
+        // Email duplicado — registra como fire-and-forget (fora da TX que abortou).
+        void recordSecurityEvent({
+          severity: "low",
+          category: "authn",
+          eventType: "signup_duplicate",
+          description: "Tentativa de signup com email já existente",
+          metadata: { email: parsedInput.email },
+        });
         return { ok: true as const };
       }
       throw err;

@@ -51,6 +51,7 @@ model Account {
   sessions           Session[]
   publishedAgentVersions AgentVersion[]
   auditLogs          AuditLog[]
+  securityEvents     SecurityEvent[]
   conversationInterventions ConversationIntervention[]
   turnsAsActor       Turn[]
 
@@ -97,6 +98,7 @@ model Tenant {
   messageTemplates      MessageTemplate[]
   conversations         Conversation[]
   turns                 Turn[]
+  securityEvents        SecurityEvent[]
 
   @@map("tenants")
 }
@@ -897,4 +899,81 @@ enum TurnSpeaker {
   human_operator
 
   @@map("turn_speaker")
+}
+
+// ---------------------------------------------------------------------------
+// SecurityEvent — eventos com viés de segurança, separados do AuditLog
+// (Ontologia §21, seguranca.md §5.7).
+//
+// AuditLog cobre ações privilegiadas legítimas. SecurityEvent cobre sinais
+// que MERECEM INVESTIGAÇÃO: brute force, MFA fail, permissão negada, secret
+// access anômalo, login fora do horário, etc.
+//
+// `tenantId` nullable: eventos cross-tenant (login pré-tenant, signup) ficam
+// com tenant_id=null. RLS filtra esses pra `app_user` (visíveis só pra admin
+// via prismaAdmin / sem RLS) — pra portal, vê só os tenant-scoped.
+//
+// `severity >= medium` deve disparar email/alert via runbook (seguranca.md §7).
+//
+// Hash chain (anti-tampering, seguranca.md §5.7) fica pra V1.5 — adicionar
+// coluna `hash_prev` quando incident response evoluir.
+// ---------------------------------------------------------------------------
+model SecurityEvent {
+  id              String              @id @default(uuid(7)) @db.Uuid
+
+  // Nullable: eventos pré-tenant (login fail no signin sem tenant ativo,
+  // signup) não têm tenant. Visíveis só pra admin Pekiart (sem RLS).
+  tenantId        String?             @map("tenant_id") @db.Uuid
+  accountId       String?             @map("account_id") @db.Uuid
+
+  severity        SecuritySeverity    @default(info)
+  category        SecurityCategory
+  eventType       String              @map("event_type") // ex.: "login_fail", "lockout_triggered"
+  description     String?
+
+  ipAddress       String?             @map("ip_address")
+  userAgent       String?             @map("user_agent")
+  metadata        Json?
+
+  // Investigação:
+  resolvedAt      DateTime?           @map("resolved_at") @db.Timestamptz(6)
+  resolutionNote  String?             @map("resolution_note")
+
+  // Cross-link com AuditLog quando faz sentido (ex.: "permissão negada"
+  // que tentou fazer X — linka pra audit que registrou a tentativa).
+  linkedAuditLogId String?            @map("linked_audit_log_id") @db.Uuid
+
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant          Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account         Account?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([accountId])
+  @@index([severity, category])
+  @@map("security_events")
+}
+
+enum SecuritySeverity {
+  info
+  low
+  medium
+  high
+  critical
+
+  @@map("security_severity")
+}
+
+enum SecurityCategory {
+  authn
+  authz
+  integration
+  upload
+  data_access
+  config_change
+  secret_access
+  rate_limit
+  anomaly
+
+  @@map("security_category")
 }

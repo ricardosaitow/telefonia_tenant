@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { hashPassword } from "@/lib/auth/argon2";
 import { prismaAdmin } from "@/lib/db/admin-client";
 import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
+import { recordSecurityEvent, recordSecurityEventInTx } from "@/lib/security/event";
 
 import { signupSchema } from "./schemas";
 
@@ -35,10 +36,21 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
           locale: submission.value.locale,
         },
       });
-      await createTenantWithOwnerInTx(tx, {
+      const tenant = await createTenantWithOwnerInTx(tx, {
         accountId: account.id,
         nomeTenant: submission.value.nomeTenant,
         locale: submission.value.locale,
+      });
+      await recordSecurityEventInTx(tx, {
+        severity: "info",
+        category: "authn",
+        eventType: "signup_success",
+        accountId: account.id,
+        tenantId: tenant.id,
+        metadata: {
+          email: submission.value.email,
+          tenantName: submission.value.nomeTenant,
+        },
       });
     });
   } catch (err) {
@@ -48,6 +60,13 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
       "code" in err &&
       (err as { code: string }).code === "P2002"
     ) {
+      void recordSecurityEvent({
+        severity: "low",
+        category: "authn",
+        eventType: "signup_duplicate",
+        description: "Tentativa de signup com email já existente",
+        metadata: { email: submission.value.email },
+      });
       redirect("/login?signup=ok");
     }
     throw err;

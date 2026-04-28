@@ -1,5 +1,6 @@
 import type { Account } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/client";
+import { recordSecurityEvent } from "@/lib/security/event";
 
 import { verifyPassword } from "./argon2";
 
@@ -14,6 +15,9 @@ import { verifyPassword } from "./argon2";
  * Implementado em camada acima (action/route handler) pra que essa função
  * fique pura e testável. Aqui só vetamos status != active e lockoutUntil
  * vigente.
+ *
+ * Side-effect: registra SecurityEvent (login_success / login_fail) com motivo
+ * — fire-and-forget, não bloqueia retorno.
  */
 
 const SENTINEL_HASH =
@@ -26,23 +30,71 @@ export type VerifyResult =
   | { ok: false; reason: "invalid" | "locked" | "disabled" };
 
 export async function verifyCredentials(email: string, password: string): Promise<VerifyResult> {
-  const account = await prisma.account.findUnique({
-    where: { email: email.toLowerCase().trim() },
-  });
+  const normalizedEmail = email.toLowerCase().trim();
+  const account = await prisma.account.findUnique({ where: { email: normalizedEmail } });
 
   if (!account) {
     await verifyPassword(SENTINEL_HASH, password).catch(() => false);
+    void recordSecurityEvent({
+      severity: "low",
+      category: "authn",
+      eventType: "login_fail",
+      description: "Email não cadastrado",
+      metadata: { email: normalizedEmail, reason: "unknown_email" },
+    });
     return { ok: false, reason: "invalid" };
   }
 
   const passwordOk = await verifyPassword(account.passwordHash, password).catch(() => false);
 
-  if (!passwordOk) return { ok: false, reason: "invalid" };
-  if (account.status === "locked") return { ok: false, reason: "locked" };
-  if (account.status === "disabled") return { ok: false, reason: "disabled" };
+  if (!passwordOk) {
+    void recordSecurityEvent({
+      severity: "medium",
+      category: "authn",
+      eventType: "login_fail",
+      description: "Senha incorreta",
+      accountId: account.id,
+      metadata: { email: normalizedEmail, reason: "wrong_password" },
+    });
+    return { ok: false, reason: "invalid" };
+  }
+  if (account.status === "locked") {
+    void recordSecurityEvent({
+      severity: "high",
+      category: "authn",
+      eventType: "login_blocked",
+      description: "Tentativa em conta locked",
+      accountId: account.id,
+    });
+    return { ok: false, reason: "locked" };
+  }
+  if (account.status === "disabled") {
+    void recordSecurityEvent({
+      severity: "medium",
+      category: "authn",
+      eventType: "login_blocked",
+      description: "Tentativa em conta disabled",
+      accountId: account.id,
+    });
+    return { ok: false, reason: "disabled" };
+  }
   if (account.lockoutUntil && account.lockoutUntil > new Date()) {
+    void recordSecurityEvent({
+      severity: "medium",
+      category: "authn",
+      eventType: "login_blocked",
+      description: "Lockout temporário ativo",
+      accountId: account.id,
+      metadata: { until: account.lockoutUntil.toISOString() },
+    });
     return { ok: false, reason: "locked" };
   }
 
+  void recordSecurityEvent({
+    severity: "info",
+    category: "authn",
+    eventType: "login_success",
+    accountId: account.id,
+  });
   return { ok: true, account };
 }
