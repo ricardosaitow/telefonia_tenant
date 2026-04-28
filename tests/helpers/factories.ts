@@ -10,7 +10,14 @@
  *     usar campos derivados (id, createdAt).
  */
 
-import type { Account, Tenant, TenantMembership } from "@/generated/prisma/client";
+import type {
+  Account,
+  Agent,
+  AgentVersion,
+  Department,
+  Tenant,
+  TenantMembership,
+} from "@/generated/prisma/client";
 
 import { asMigrator } from "./tenants";
 
@@ -66,6 +73,73 @@ export async function makeMembership(input: MakeMembershipInput): Promise<Tenant
         globalRole: input.role ?? "tenant_admin",
         status: input.status ?? "active",
         joinedAt: new Date(),
+      },
+    }),
+  );
+}
+
+export interface MakeDepartmentInput {
+  tenantId: string;
+  slug?: string;
+  nome?: string;
+}
+
+export async function makeDepartment(input: MakeDepartmentInput): Promise<Department> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.department.create({
+      data: {
+        tenantId: input.tenantId,
+        slug: input.slug ?? `dept-${id.slice(0, 12)}`,
+        nome: input.nome ?? `Department ${id.slice(0, 8)}`,
+      },
+    }),
+  );
+}
+
+export interface MakeAgentInput {
+  tenantId: string;
+  departmentId: string;
+  slug?: string;
+  nome?: string;
+  status?: "draft" | "testing" | "production" | "paused";
+}
+
+export async function makeAgent(input: MakeAgentInput): Promise<Agent> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.agent.create({
+      data: {
+        tenantId: input.tenantId,
+        departmentId: input.departmentId,
+        slug: input.slug ?? `agent-${id.slice(0, 12)}`,
+        nome: input.nome ?? `Agent ${id.slice(0, 8)}`,
+        status: input.status ?? "draft",
+      },
+    }),
+  );
+}
+
+export interface MakeAgentVersionInput {
+  agentId: string;
+  tenantId: string;
+  version?: number;
+  systemPrompt?: string;
+  publishedByAccountId?: string;
+}
+
+export async function makeAgentVersion(input: MakeAgentVersionInput): Promise<AgentVersion> {
+  return asMigrator((tx) =>
+    tx.agentVersion.create({
+      data: {
+        agentId: input.agentId,
+        tenantId: input.tenantId,
+        version: input.version ?? 1,
+        systemPrompt: input.systemPrompt ?? "You are a test agent.",
+        params: {},
+        toolsSnapshot: {},
+        knowledgeSnapshot: {},
+        publishedByAccountId: input.publishedByAccountId ?? null,
       },
     }),
   );

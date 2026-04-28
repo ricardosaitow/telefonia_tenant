@@ -9,18 +9,36 @@
  * rules/multi-tenant.md, rules/testing-portal.md). Falha bloqueia merge
  * (`pnpm test:rls` no pre-push hook + verify).
  *
- * Cobertura desta migration inicial:
+ * Cobertura atual:
  *   - tenants            (RLS no `id`)
  *   - tenant_memberships (RLS no `tenant_id`)
+ *   - departments        (RLS no `tenant_id`)
+ *   - agents             (RLS no `tenant_id`)
+ *   - agent_versions     (RLS no `tenant_id` denormalizado)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
+ * sessions e per-account, sem tenant_id -- nao entra aqui.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import type { Account, Tenant, TenantMembership } from "@/generated/prisma/client";
+import type {
+  Account,
+  Agent,
+  AgentVersion,
+  Department,
+  Tenant,
+  TenantMembership,
+} from "@/generated/prisma/client";
 
-import { makeAccount, makeMembership, makeTenant } from "../helpers/factories";
+import {
+  makeAccount,
+  makeAgent,
+  makeAgentVersion,
+  makeDepartment,
+  makeMembership,
+  makeTenant,
+} from "../helpers/factories";
 import { asTenant } from "../helpers/tenants";
 import { appPrisma, migratorPrisma } from "../helpers/test-client";
 
@@ -29,10 +47,15 @@ let tenantB: Tenant;
 let accountX: Account;
 let accountY: Account;
 let membershipAX: TenantMembership;
+let departmentA: Department;
+let agentA: Agent;
+let agentVersionA: AgentVersion;
 
 beforeAll(async () => {
-  // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada
-  // (X em A, Y em B). E suficiente pra exercitar todas as combinacoes.
+  // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
+  // Em A: 1 department + 1 agent + 1 agent version. Tenant B fica vazio
+  // (so com membership) -- exatamente o que precisamos pra exercitar
+  // todos os "B nao enxerga A".
   tenantA = await makeTenant({ slug: `rls-a-${crypto.randomUUID().slice(0, 8)}` });
   tenantB = await makeTenant({ slug: `rls-b-${crypto.randomUUID().slice(0, 8)}` });
   accountX = await makeAccount();
@@ -47,12 +70,23 @@ beforeAll(async () => {
     accountId: accountY.id,
     role: "tenant_owner",
   });
+
+  departmentA = await makeDepartment({ tenantId: tenantA.id });
+  agentA = await makeAgent({ tenantId: tenantA.id, departmentId: departmentA.id });
+  agentVersionA = await makeAgentVersion({
+    agentId: agentA.id,
+    tenantId: tenantA.id,
+    publishedByAccountId: accountX.id,
+  });
 });
 
 afterAll(async () => {
   // Limpa pra nao poluir runs subsequentes do mesmo container.
-  // Ordem: memberships (FK) -> tenants -> accounts.
+  // Ordem FK: agent_versions -> agents -> departments -> memberships -> tenants -> accounts.
   await migratorPrisma().$transaction(async (tx) => {
+    await tx.agentVersion.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
+    await tx.agent.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
+    await tx.department.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.tenantMembership.deleteMany({
       where: { tenantId: { in: [tenantA.id, tenantB.id] } },
     });
@@ -88,7 +122,6 @@ describe("RLS: tenants", () => {
     );
     expect(result.count).toBe(0);
 
-    // Sanity: como migrator (bypass RLS), confirma que A nao foi tocado.
     const reread = await migratorPrisma().tenant.findUnique({ where: { id: tenantA.id } });
     expect(reread?.nomeFantasia).toBe(tenantA.nomeFantasia);
   });
@@ -118,7 +151,6 @@ describe("RLS: tenant_memberships", () => {
         where: { tenantId: { in: [tenantA.id, tenantB.id] } },
       }),
     );
-    // So memberships do tenant B podem aparecer (no caso, a do account Y).
     for (const m of list) {
       expect(m.tenantId).toBe(tenantB.id);
     }
@@ -152,11 +184,108 @@ describe("RLS: tenant_memberships", () => {
   });
 });
 
+describe("RLS: departments", () => {
+  it("tenant B nao enxerga department do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.department.findUnique({ where: { id: departmentA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany department do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.department.updateMany({
+        where: { id: departmentA.id },
+        data: { nome: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().department.findUnique({ where: { id: departmentA.id } });
+    expect(reread?.nome).toBe(departmentA.nome);
+  });
+
+  it("tenant B nao consegue deleteMany department do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.department.deleteMany({ where: { id: departmentA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().department.findUnique({ where: { id: departmentA.id } });
+    expect(reread).not.toBeNull();
+  });
+});
+
+describe("RLS: agents", () => {
+  it("tenant B nao enxerga agent do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.agent.findUnique({ where: { id: agentA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany agent do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.agent.updateMany({
+        where: { id: agentA.id },
+        data: { nome: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().agent.findUnique({ where: { id: agentA.id } });
+    expect(reread?.nome).toBe(agentA.nome);
+  });
+
+  it("tenant B nao consegue deleteMany agent do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.agent.deleteMany({ where: { id: agentA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().agent.findUnique({ where: { id: agentA.id } });
+    expect(reread).not.toBeNull();
+  });
+});
+
+describe("RLS: agent_versions", () => {
+  it("tenant B nao enxerga agent_version do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.agentVersion.findUnique({ where: { id: agentVersionA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany agent_version do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.agentVersion.updateMany({
+        where: { id: agentVersionA.id },
+        data: { changelog: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().agentVersion.findUnique({
+      where: { id: agentVersionA.id },
+    });
+    expect(reread?.changelog).toBe(agentVersionA.changelog);
+  });
+
+  it("tenant B nao consegue deleteMany agent_version do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.agentVersion.deleteMany({ where: { id: agentVersionA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().agentVersion.findUnique({
+      where: { id: agentVersionA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
-    // Conectar via app_user SEM passar por asTenant -> sem set_config.
-    // current_setting('app.current_tenant', true) retorna NULL ->
-    // predicate `id = NULL::uuid` = NULL -> 0 rows. Fail closed.
     const list = await appPrisma().tenant.findMany({
       where: { id: { in: [tenantA.id, tenantB.id] } },
     });
@@ -167,6 +296,21 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
     const list = await appPrisma().tenantMembership.findMany({
       where: { id: membershipAX.id },
     });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, departments devolve 0 rows", async () => {
+    const list = await appPrisma().department.findMany({ where: { id: departmentA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, agents devolve 0 rows", async () => {
+    const list = await appPrisma().agent.findMany({ where: { id: agentA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, agent_versions devolve 0 rows", async () => {
+    const list = await appPrisma().agentVersion.findMany({ where: { id: agentVersionA.id } });
     expect(list).toEqual([]);
   });
 });

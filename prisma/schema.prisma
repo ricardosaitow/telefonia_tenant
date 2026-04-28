@@ -49,6 +49,7 @@ model Account {
 
   memberships        TenantMembership[]
   sessions           Session[]
+  publishedAgentVersions AgentVersion[]
 
   @@map("accounts")
 }
@@ -81,6 +82,9 @@ model Tenant {
 
   memberships           TenantMembership[]
   activeSessions        Session[]          @relation("SessionActiveTenant")
+  departments           Department[]
+  agents                Agent[]
+  agentVersions         AgentVersion[]
 
   @@map("tenants")
 }
@@ -169,4 +173,130 @@ model Session {
   @@index([accountId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+// ---------------------------------------------------------------------------
+// Department — agrupa Agents por área (Comercial, Suporte N1/N2/N3, Financeiro).
+// Ontologia §5. RLS por tenant_id (D002).
+// ---------------------------------------------------------------------------
+model Department {
+  id                      String   @id @default(uuid(7)) @db.Uuid
+  tenantId                String   @map("tenant_id") @db.Uuid
+  slug                    String
+  nome                    String
+  descricao               String?
+  cor                     String?  // hex/CSS, UI-only — validação no Zod
+  // business_hours: JSON com { dias: [...], horas: { abre, fecha }, timezone }.
+  // Schema é livre na V1 (validação no app); endurece quando o produto pedir.
+  businessHours           Json?    @map("business_hours")
+  outOfHoursTemplateKey   String?  @map("out_of_hours_template_key")
+  // FK opcional pra Agent default; circular ref com Agent (Agent.departmentId).
+  // onDelete: SetNull pra que apagar Agent não derrube Department.
+  defaultAgentId          String?  @map("default_agent_id") @db.Uuid
+
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  defaultAgent            Agent?   @relation("DepartmentDefaultAgent", fields: [defaultAgentId], references: [id], onDelete: SetNull)
+  agents                  Agent[]  @relation("DepartmentAgents")
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("departments")
+}
+
+// ---------------------------------------------------------------------------
+// Agent — IA configurada pra função num Department (Ontologia §6, D005).
+//
+// Versionamento híbrido (D005):
+//   - draft_state: JSON com (system_prompt, params, tools_config) em rascunho.
+//     Atualizado por autosave durante edição. NÃO versionado.
+//   - currentVersionId: FK pra última AgentVersion publicada — runtime sempre
+//     lê esta. Nullable até primeira publish.
+//   - status: draft → testing → production → paused; volta a production.
+//
+// RLS por tenant_id (D002).
+// ---------------------------------------------------------------------------
+model Agent {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  tenantId          String        @map("tenant_id") @db.Uuid
+  departmentId     String        @map("department_id") @db.Uuid
+  slug              String
+  nome              String
+  descricao         String?
+
+  // Estado mutável (autosave). Validado por Zod no app antes de publicar.
+  draftState        Json          @default("{}") @map("draft_state")
+  status            AgentStatus   @default(draft)
+
+  // Versão publicada que o runtime executa. Nullable até primeira publish.
+  // onDelete: Restrict pra que não se possa apagar versão sendo usada — quem
+  // tentar precisa primeiro mover currentVersionId.
+  currentVersionId  String?       @unique @map("current_version_id") @db.Uuid
+  lastPublishedAt   DateTime?     @map("last_published_at") @db.Timestamptz(6)
+
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department        Department    @relation("DepartmentAgents", fields: [departmentId], references: [id], onDelete: Restrict)
+  defaultOf         Department[]  @relation("DepartmentDefaultAgent")
+
+  versions          AgentVersion[] @relation("AgentVersions")
+  currentVersion    AgentVersion?  @relation("AgentCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([departmentId])
+  @@map("agents")
+}
+
+enum AgentStatus {
+  draft
+  testing
+  production
+  paused
+
+  @@map("agent_status")
+}
+
+// ---------------------------------------------------------------------------
+// AgentVersion — snapshot imutável publicado (D005, Ontologia §7).
+//
+// Runtime SEMPRE lê via Agent.currentVersionId. Imutável após criação:
+// rollback = nova publish que copia snapshot antigo pro draft + republica.
+//
+// `version` é incremental por Agent (1, 2, 3...). Garantido por @@unique +
+// lógica de incremento na Server Action de publish.
+//
+// RLS por tenant_id denormalizado (não tem na tabela mãe — Agent — então
+// guardamos cópia aqui pra a policy funcionar sem JOIN).
+// ---------------------------------------------------------------------------
+model AgentVersion {
+  id                      String    @id @default(uuid(7)) @db.Uuid
+  agentId                 String    @map("agent_id") @db.Uuid
+  tenantId                String    @map("tenant_id") @db.Uuid
+  version                 Int
+
+  publishedAt             DateTime  @default(now()) @map("published_at") @db.Timestamptz(6)
+  publishedByAccountId    String?   @map("published_by_account_id") @db.Uuid
+
+  systemPrompt            String    @map("system_prompt")
+  params                  Json
+  toolsSnapshot           Json      @map("tools_snapshot")
+  knowledgeSnapshot       Json      @map("knowledge_snapshot")
+  changelog               String?
+
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant                  Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent                   Agent     @relation("AgentVersions", fields: [agentId], references: [id], onDelete: Cascade)
+  publishedByAccount      Account?  @relation(fields: [publishedByAccountId], references: [id], onDelete: SetNull)
+  agentAsCurrent          Agent?    @relation("AgentCurrentVersion")
+
+  @@unique([agentId, version])
+  @@index([tenantId])
+  @@index([agentId])
+  @@map("agent_versions")
 }
