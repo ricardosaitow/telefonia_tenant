@@ -17,6 +17,7 @@
  *   - agent_versions     (RLS no `tenant_id` denormalizado)
  *   - audit_logs         (RLS no `tenant_id`)
  *   - channels           (RLS no `tenant_id`)
+ *   - routing_rules      (RLS no `tenant_id`)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
  * sessions e per-account, sem tenant_id -- nao entra aqui.
@@ -31,6 +32,7 @@ import type {
   AuditLog,
   Channel,
   Department,
+  RoutingRule,
   Tenant,
   TenantMembership,
 } from "@/generated/prisma/client";
@@ -43,6 +45,7 @@ import {
   makeChannel,
   makeDepartment,
   makeMembership,
+  makeRoutingRule,
   makeTenant,
 } from "../helpers/factories";
 import { asTenant } from "../helpers/tenants";
@@ -58,6 +61,7 @@ let agentA: Agent;
 let agentVersionA: AgentVersion;
 let auditLogA: AuditLog;
 let channelA: Channel;
+let routingRuleA: RoutingRule;
 
 beforeAll(async () => {
   // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
@@ -94,13 +98,19 @@ beforeAll(async () => {
     entityId: departmentA.id,
   });
   channelA = await makeChannel({ tenantId: tenantA.id });
+  routingRuleA = await makeRoutingRule({
+    tenantId: tenantA.id,
+    channelId: channelA.id,
+    targetDepartmentId: departmentA.id,
+  });
 });
 
 afterAll(async () => {
   // Limpa pra nao poluir runs subsequentes do mesmo container.
-  // Ordem FK: audit_logs -> agent_versions -> agents -> departments
-  //         -> channels -> memberships -> tenants -> accounts.
+  // Ordem FK: routing_rules -> audit_logs -> agent_versions -> agents
+  //         -> departments -> channels -> memberships -> tenants -> accounts.
   await migratorPrisma().$transaction(async (tx) => {
+    await tx.routingRule.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.auditLog.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.agentVersion.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.agent.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
@@ -371,6 +381,42 @@ describe("RLS: channels", () => {
   });
 });
 
+describe("RLS: routing_rules", () => {
+  it("tenant B nao enxerga routing_rule do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.routingRule.findUnique({ where: { id: routingRuleA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany routing_rule do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.routingRule.updateMany({
+        where: { id: routingRuleA.id },
+        data: { prioridade: 999 },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().routingRule.findUnique({
+      where: { id: routingRuleA.id },
+    });
+    expect(reread?.prioridade).toBe(routingRuleA.prioridade);
+  });
+
+  it("tenant B nao consegue deleteMany routing_rule do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.routingRule.deleteMany({ where: { id: routingRuleA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().routingRule.findUnique({
+      where: { id: routingRuleA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
     const list = await appPrisma().tenant.findMany({
@@ -408,6 +454,11 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
 
   it("sem app.current_tenant setado, channels devolve 0 rows", async () => {
     const list = await appPrisma().channel.findMany({ where: { id: channelA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, routing_rules devolve 0 rows", async () => {
+    const list = await appPrisma().routingRule.findMany({ where: { id: routingRuleA.id } });
     expect(list).toEqual([]);
   });
 });

@@ -17,6 +17,7 @@ import type {
   AuditLog,
   Channel,
   Department,
+  RoutingRule,
   Tenant,
   TenantMembership,
 } from "@/generated/prisma/client";
@@ -186,6 +187,30 @@ export async function makeChannel(input: MakeChannelInput): Promise<Channel> {
         tipo: input.tipo ?? "voice_did",
         identificador: input.identificador ?? `chan-${id.slice(0, 12)}`,
         nomeAmigavel: input.nomeAmigavel ?? `Channel ${id.slice(0, 8)}`,
+      },
+    }),
+  );
+}
+
+export interface MakeRoutingRuleInput {
+  tenantId: string;
+  channelId: string;
+  /** Exatamente UM dos targets deve ser passado (XOR no DB). */
+  targetDepartmentId?: string;
+  targetAgentId?: string;
+  targetRoutingRuleId?: string;
+}
+
+export async function makeRoutingRule(input: MakeRoutingRuleInput): Promise<RoutingRule> {
+  return asMigrator((tx) =>
+    tx.routingRule.create({
+      data: {
+        tenantId: input.tenantId,
+        channelId: input.channelId,
+        tipo: "direct",
+        targetDepartmentId: input.targetDepartmentId ?? null,
+        targetAgentId: input.targetAgentId ?? null,
+        targetRoutingRuleId: input.targetRoutingRuleId ?? null,
       },
     }),
   );

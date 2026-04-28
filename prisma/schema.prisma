@@ -88,6 +88,7 @@ model Tenant {
   agentVersions         AgentVersion[]
   auditLogs             AuditLog[]
   channels              Channel[]
+  routingRules          RoutingRule[]
 
   @@map("tenants")
 }
@@ -204,6 +205,7 @@ model Department {
   tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   defaultAgent            Agent?   @relation("DepartmentDefaultAgent", fields: [defaultAgentId], references: [id], onDelete: SetNull)
   agents                  Agent[]  @relation("DepartmentAgents")
+  routingRulesAsTarget    RoutingRule[] @relation("RoutingRuleTargetDepartment")
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -249,6 +251,8 @@ model Agent {
 
   versions          AgentVersion[] @relation("AgentVersions")
   currentVersion    AgentVersion?  @relation("AgentCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+
+  routingRulesAsTarget RoutingRule[] @relation("RoutingRuleTargetAgent")
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -388,6 +392,8 @@ model Channel {
   updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  defaultRoutingRule    RoutingRule?   @relation("ChannelDefaultRule", fields: [defaultRoutingRuleId], references: [id], onDelete: SetNull)
+  routingRules          RoutingRule[]
 
   // identificador único por tenant — evita 2 channels com mesmo DID/email/etc.
   @@unique([tenantId, tipo, identificador])
@@ -411,4 +417,62 @@ enum ChannelStatus {
   disabled
 
   @@map("channel_status")
+}
+
+// ---------------------------------------------------------------------------
+// RoutingRule — como conversa que entra num Channel chega num Department/Agent
+// (Ontologia §12). V1 cobre só `tipo=direct`; demais (business_hours, ivr_menu,
+// ai_router) ficam pra fatias futuras com UI específica.
+//
+// Target XOR: EXATAMENTE UM de targetDepartmentId / targetAgentId /
+// targetRoutingRuleId. Constraint CHECK na migration garante (Prisma 7 não
+// expressa XOR direto). targetRoutingRuleId habilita encadeamento (rule → rule).
+//
+// RLS por tenant_id (D002).
+// ---------------------------------------------------------------------------
+model RoutingRule {
+  id                       String          @id @default(uuid(7)) @db.Uuid
+  tenantId                 String          @map("tenant_id") @db.Uuid
+  channelId                String          @map("channel_id") @db.Uuid
+
+  tipo                     RoutingRuleType @default(direct)
+  config                   Json            @default("{}")
+  prioridade               Int             @default(0)
+  // Template MessageTemplate.key opcional (vem quando MessageTemplate chegar).
+  promptTemplateKey        String?         @map("prompt_template_key")
+
+  // Target XOR — CHECK constraint na migration force exatamente 1 não-nulo.
+  // SetNull em delete pra preservar a rule (com target null = "broken",
+  // visível no portal pra reconfigurar).
+  targetDepartmentId       String?         @map("target_department_id") @db.Uuid
+  targetAgentId            String?         @map("target_agent_id") @db.Uuid
+  targetRoutingRuleId      String?         @map("target_routing_rule_id") @db.Uuid
+
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel                  Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  targetDepartment         Department?     @relation("RoutingRuleTargetDepartment", fields: [targetDepartmentId], references: [id], onDelete: SetNull)
+  targetAgent              Agent?          @relation("RoutingRuleTargetAgent", fields: [targetAgentId], references: [id], onDelete: SetNull)
+  targetRoutingRule        RoutingRule?    @relation("RoutingRuleChain", fields: [targetRoutingRuleId], references: [id], onDelete: SetNull)
+  childRoutingRules        RoutingRule[]   @relation("RoutingRuleChain")
+
+  // Channel.defaultRoutingRuleId aponta pra UMA — back-relation aqui.
+  channelsAsDefault        Channel[]       @relation("ChannelDefaultRule")
+
+  @@index([tenantId])
+  @@index([channelId])
+  @@index([targetDepartmentId])
+  @@index([targetAgentId])
+  @@map("routing_rules")
+}
+
+enum RoutingRuleType {
+  direct
+  business_hours
+  ivr_menu
+  ai_router
+
+  @@map("routing_rule_type")
 }
