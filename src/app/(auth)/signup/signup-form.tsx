@@ -9,8 +9,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { signupSchema } from "@/features/auth/schemas";
 import { signupFormAction } from "@/features/auth/signup-form-action";
+import { LOCALE_LABEL, LOCALE_VALUES } from "@/features/tenant-settings/schemas";
 
 export function SignupForm() {
   const [lastResult, action, pending] = useActionState(signupFormAction, undefined);
@@ -89,6 +97,22 @@ export function SignupForm() {
         {fields.password.errors?.length ? (
           <p className="text-destructive text-sm">{fields.password.errors.join(" ")}</p>
         ) : null}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={fields.locale.id}>Idioma</Label>
+        <Select name={fields.locale.name} defaultValue="pt-BR">
+          <SelectTrigger id={fields.locale.id}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {LOCALE_VALUES.map((l) => (
+              <SelectItem key={l} value={l}>
+                {LOCALE_LABEL[l]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Button type="submit" disabled={pending}>
