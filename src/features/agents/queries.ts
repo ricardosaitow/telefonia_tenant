@@ -58,6 +58,26 @@ export async function listDepartmentOptions(activeTenantId: string) {
   );
 }
 
+/**
+ * Lista versões publicadas de um agente, mais recente primeiro.
+ */
+export async function listAgentVersions(activeTenantId: string, agentId: string) {
+  return withTenantContext(activeTenantId, (tx) =>
+    tx.agentVersion.findMany({
+      where: { agentId },
+      orderBy: [{ version: "desc" }],
+      select: {
+        id: true,
+        version: true,
+        publishedAt: true,
+        changelog: true,
+        publishedByAccount: { select: { id: true, nome: true, email: true } },
+      },
+    }),
+  );
+}
+
 export type AgentListItem = Awaited<ReturnType<typeof listAgents>>[number];
 export type AgentDetail = NonNullable<Awaited<ReturnType<typeof getAgentById>>>;
+export type AgentVersionListItem = Awaited<ReturnType<typeof listAgentVersions>>[number];
 export type DepartmentOption = Awaited<ReturnType<typeof listDepartmentOptions>>[number];
