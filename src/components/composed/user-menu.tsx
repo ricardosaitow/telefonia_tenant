@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 
@@ -82,6 +83,15 @@ export function UserMenu({ name, email }: UserMenuProps) {
           </div>
 
           <div className="border-divider my-1 border-t" />
+
+          <Link
+            href="/account"
+            role="menuitem"
+            className="hover:bg-glass-bg text-foreground block rounded-md px-3 py-2 text-left text-sm transition-colors"
+            onClick={() => setOpen(false)}
+          >
+            Minha conta
+          </Link>
 
           <button
             type="button"
