@@ -51,6 +51,8 @@ model Account {
   sessions           Session[]
   publishedAgentVersions AgentVersion[]
   auditLogs          AuditLog[]
+  conversationInterventions ConversationIntervention[]
+  turnsAsActor       Turn[]
 
   @@map("accounts")
 }
@@ -93,6 +95,8 @@ model Tenant {
   agentKnowledge        AgentKnowledge[]
   agentTools            AgentTool[]
   messageTemplates      MessageTemplate[]
+  conversations         Conversation[]
+  turns                 Turn[]
 
   @@map("tenants")
 }
@@ -210,6 +214,7 @@ model Department {
   defaultAgent            Agent?   @relation("DepartmentDefaultAgent", fields: [defaultAgentId], references: [id], onDelete: SetNull)
   agents                  Agent[]  @relation("DepartmentAgents")
   routingRulesAsTarget    RoutingRule[] @relation("RoutingRuleTargetDepartment")
+  conversationsAsCurrent  Conversation[] @relation("ConversationCurrentDepartment")
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -259,6 +264,9 @@ model Agent {
   routingRulesAsTarget RoutingRule[] @relation("RoutingRuleTargetAgent")
   knowledgeSources     AgentKnowledge[]
   tools                AgentTool[]
+  conversationsAsCurrent Conversation[] @relation("ConversationCurrentAgent")
+  conversationAgentHistoryFrom ConversationAgentHistory[] @relation("ConversationAgentHistoryFrom")
+  conversationAgentHistoryTo   ConversationAgentHistory[] @relation("ConversationAgentHistoryTo")
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -400,6 +408,7 @@ model Channel {
   tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   defaultRoutingRule    RoutingRule?   @relation("ChannelDefaultRule", fields: [defaultRoutingRuleId], references: [id], onDelete: SetNull)
   routingRules          RoutingRule[]
+  conversations         Conversation[]
 
   // identificador único por tenant — evita 2 channels com mesmo DID/email/etc.
   @@unique([tenantId, tipo, identificador])
@@ -656,4 +665,236 @@ enum MessageTemplateScope {
   agent
 
   @@map("message_template_scope")
+}
+
+// ===========================================================================
+// CONVERSATION (Ontologia §14, D006 — modelo unificado voz/WA/email/webchat)
+//
+// Tabela central + 3 sub-tables 1:1 opcionais por canal + Turn (mensagens) +
+// ConversationAgentHistory (transferências) + ConversationIntervention
+// (intervenção humana — texto V1, voz V1.5).
+//
+// `tenantId` denormalizado em TODAS as filhas pra que RLS use policy padrão
+// sem JOIN (mesmo pattern de AgentVersion, AuditLog).
+// ===========================================================================
+
+model Conversation {
+  id                    String              @id @default(uuid(7)) @db.Uuid
+  tenantId              String              @map("tenant_id") @db.Uuid
+  channelId             String              @map("channel_id") @db.Uuid
+
+  startedAt             DateTime            @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt               DateTime?           @map("ended_at") @db.Timestamptz(6)
+  status                ConversationStatus  @default(active)
+
+  // Roteamento atual — onde a conversa está no momento.
+  currentAgentId        String?             @map("current_agent_id") @db.Uuid
+  currentDepartmentId   String?             @map("current_department_id") @db.Uuid
+
+  // Identificação do cliente final (telefone/email/wa-id conforme canal).
+  // customerMetadata: dados extras (nome detectado, MRR, contato CRM, etc).
+  customerIdentifier    String?             @map("customer_identifier")
+  customerMetadata      Json?               @map("customer_metadata")
+
+  tags                  String[]            @default([])
+  summary               String?             // gerado ao fim
+  languageDetected      String?             @map("language_detected")
+  durationSeconds       Int?                @map("duration_seconds")
+  costUsdTotal          Decimal?            @map("cost_usd_total") @db.Decimal(12, 6)
+
+  assistanceMode        AssistanceMode      @default(ai_only) @map("assistance_mode")
+
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel               Channel             @relation(fields: [channelId], references: [id], onDelete: Restrict)
+  currentAgent          Agent?              @relation("ConversationCurrentAgent", fields: [currentAgentId], references: [id], onDelete: SetNull)
+  currentDepartment     Department?         @relation("ConversationCurrentDepartment", fields: [currentDepartmentId], references: [id], onDelete: SetNull)
+
+  // Sub-tables 1:1 opcionais — cada conversa tem AT MOST ONE de cada tipo
+  // (geralmente só 1, do canal que originou).
+  voiceData             ConversationVoiceData?
+  emailData             ConversationEmailData?
+  whatsappData          ConversationWhatsappData?
+
+  turns                 Turn[]
+  agentHistory          ConversationAgentHistory[]
+  interventions         ConversationIntervention[]
+
+  @@index([tenantId, startedAt(sort: Desc)])
+  @@index([channelId])
+  @@index([currentAgentId])
+  @@index([currentDepartmentId])
+  @@map("conversations")
+}
+
+enum ConversationStatus {
+  active
+  ended
+  abandoned
+  escalated
+
+  @@map("conversation_status")
+}
+
+enum AssistanceMode {
+  ai_only
+  human_observing
+  human_assisted
+  human_takeover
+
+  @@map("assistance_mode")
+}
+
+// ---------------------------------------------------------------------------
+// Sub-table específica de canal — voz (DID SIP).
+// 1:1 opcional com Conversation. Cascateia delete da parent.
+// tenant_id denormalizado pra RLS sem JOIN.
+// ---------------------------------------------------------------------------
+model ConversationVoiceData {
+  conversationId   String       @id @map("conversation_id") @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+
+  recordingRef     String?      @map("recording_ref")
+  sipCallId        String?      @map("sip_call_id")
+  callerIdName     String?      @map("caller_id_name")
+  hangupCause      String?      @map("hangup_cause")
+
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("conversation_voice_data")
+}
+
+model ConversationEmailData {
+  conversationId   String       @id @map("conversation_id") @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+
+  subject          String?
+  rootMessageId    String?      @map("root_message_id")    // RFC 5322 Message-Id
+  references       String[]     @default([])               // chain de message_ids
+  fromAddress      String?      @map("from_address")
+
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("conversation_email_data")
+}
+
+model ConversationWhatsappData {
+  conversationId             String       @id @map("conversation_id") @db.Uuid
+  tenantId                   String       @map("tenant_id") @db.Uuid
+
+  waChatId                   String?      @map("wa_chat_id")
+  // Janela de 24h da Meta — fora dela, só template aprovado.
+  businessInitiatedWindowUntil DateTime?  @map("business_initiated_window_until") @db.Timestamptz(6)
+  lastTemplateUsedId         String?      @map("last_template_used_id") @db.Uuid
+
+  conversation               Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("conversation_whatsapp_data")
+}
+
+// ---------------------------------------------------------------------------
+// ConversationAgentHistory — registra cada transferência de agent dentro
+// da conversa (ex.: N1 → N2). fromAgentId nullable na primeira ocorrência.
+// ---------------------------------------------------------------------------
+model ConversationAgentHistory {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  conversationId  String       @map("conversation_id") @db.Uuid
+  tenantId        String       @map("tenant_id") @db.Uuid
+
+  fromAgentId     String?      @map("from_agent_id") @db.Uuid
+  toAgentId       String       @map("to_agent_id") @db.Uuid
+
+  at              DateTime     @default(now()) @db.Timestamptz(6)
+  reason          String?
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromAgent       Agent?       @relation("ConversationAgentHistoryFrom", fields: [fromAgentId], references: [id], onDelete: SetNull)
+  toAgent         Agent        @relation("ConversationAgentHistoryTo", fields: [toAgentId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@map("conversation_agent_history")
+}
+
+// ---------------------------------------------------------------------------
+// ConversationIntervention — operador humano entra na conversa.
+// Texto: V1; voz (barge-in/takeover SIP): V1.5.
+// ---------------------------------------------------------------------------
+model ConversationIntervention {
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  conversationId     String           @map("conversation_id") @db.Uuid
+  tenantId           String           @map("tenant_id") @db.Uuid
+  operatorAccountId  String           @map("operator_account_id") @db.Uuid
+
+  modeEntered        InterventionMode @map("mode_entered")
+  startedAt          DateTime         @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt            DateTime?        @map("ended_at") @db.Timestamptz(6)
+  reason             String?
+
+  conversation       Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // SetNull em delete pra preservar histórico mesmo se Account for apagada.
+  operatorAccount    Account          @relation(fields: [operatorAccountId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@map("conversation_intervention")
+}
+
+enum InterventionMode {
+  observing
+  assisted
+  takeover
+
+  @@map("intervention_mode")
+}
+
+// ---------------------------------------------------------------------------
+// Turn — evento individual da conversa (Ontologia §15). Em texto = uma
+// mensagem; em voz = um turn de fala (transcrito) com áudio opcional.
+//
+// `actorAccountId` preenchido quando speaker=human_operator (preserva auditoria
+// de intervenção). NÃO confundir com `currentAgentId` da conversation.
+// ---------------------------------------------------------------------------
+model Turn {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  conversationId  String       @map("conversation_id") @db.Uuid
+  tenantId        String       @map("tenant_id") @db.Uuid
+
+  speaker         TurnSpeaker
+  contentText     String?      @map("content_text")
+  contentAudioRef String?      @map("content_audio_ref")
+  timestamp       DateTime     @default(now()) @db.Timestamptz(6)
+  latencyMs       Int?         @map("latency_ms")
+
+  // Quando agente invoca tool: tool_call (input) e tool_result (output).
+  toolCall        Json?        @map("tool_call")
+  toolResult      Json?        @map("tool_result")
+
+  tokensIn        Int?         @map("tokens_in")
+  tokensOut       Int?         @map("tokens_out")
+
+  actorAccountId  String?      @map("actor_account_id") @db.Uuid
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorAccount    Account?     @relation(fields: [actorAccountId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([conversationId, timestamp])
+  @@map("turns")
+}
+
+enum TurnSpeaker {
+  customer
+  agent
+  system
+  tool
+  human_operator
+
+  @@map("turn_speaker")
 }

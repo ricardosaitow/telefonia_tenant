@@ -18,10 +18,18 @@
  *   - audit_logs         (RLS no `tenant_id`)
  *   - channels           (RLS no `tenant_id`)
  *   - routing_rules      (RLS no `tenant_id`)
+
  *   - knowledge_sources  (RLS no `tenant_id`)
  *   - agent_knowledge    (RLS no `tenant_id` denormalizado)
  *   - agent_tools        (RLS no `tenant_id`)
  *   - message_templates  (RLS no `tenant_id`)
+ *   - conversations      (RLS no `tenant_id`)
+ *   - conversation_voice_data    (RLS no `tenant_id` denormalizado)
+ *   - conversation_email_data    (RLS no `tenant_id` denormalizado)
+ *   - conversation_whatsapp_data (RLS no `tenant_id` denormalizado)
+ *   - conversation_agent_history (RLS no `tenant_id` denormalizado)
+ *   - conversation_intervention  (RLS no `tenant_id` denormalizado)
+ *   - turns              (RLS no `tenant_id` denormalizado)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
  * sessions e per-account, sem tenant_id -- nao entra aqui.
@@ -37,12 +45,19 @@ import type {
   AgentVersion,
   AuditLog,
   Channel,
+  Conversation,
+  ConversationAgentHistory,
+  ConversationEmailData,
+  ConversationIntervention,
+  ConversationVoiceData,
+  ConversationWhatsappData,
   Department,
   KnowledgeSource,
   MessageTemplate,
   RoutingRule,
   Tenant,
   TenantMembership,
+  Turn,
 } from "@/generated/prisma/client";
 
 import {
@@ -53,12 +68,19 @@ import {
   makeAgentVersion,
   makeAuditLog,
   makeChannel,
+  makeConversation,
+  makeConversationAgentHistory,
+  makeConversationEmailData,
+  makeConversationIntervention,
+  makeConversationVoiceData,
+  makeConversationWhatsappData,
   makeDepartment,
   makeKnowledgeSource,
   makeMembership,
   makeMessageTemplate,
   makeRoutingRule,
   makeTenant,
+  makeTurn,
 } from "../helpers/factories";
 import { asTenant } from "../helpers/tenants";
 import { appPrisma, migratorPrisma } from "../helpers/test-client";
@@ -78,6 +100,13 @@ let knowledgeSourceA: KnowledgeSource;
 let agentKnowledgeA: AgentKnowledge;
 let agentToolA: AgentTool;
 let messageTemplateA: MessageTemplate;
+let conversationA: Conversation;
+let voiceDataA: ConversationVoiceData;
+let emailDataA: ConversationEmailData;
+let waDataA: ConversationWhatsappData;
+let agentHistoryA: ConversationAgentHistory;
+let interventionA: ConversationIntervention;
+let turnA: Turn;
 
 beforeAll(async () => {
   // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
@@ -127,14 +156,76 @@ beforeAll(async () => {
   });
   agentToolA = await makeAgentTool({ tenantId: tenantA.id, agentId: agentA.id });
   messageTemplateA = await makeMessageTemplate({ tenantId: tenantA.id });
+  conversationA = await makeConversation({
+    tenantId: tenantA.id,
+    channelId: channelA.id,
+    currentAgentId: agentA.id,
+    currentDepartmentId: departmentA.id,
+  });
+  voiceDataA = await makeConversationVoiceData({
+    conversationId: conversationA.id,
+    tenantId: tenantA.id,
+  });
+  // Pra voice/email/wa terem fixtures distintas (cada uma 1:1 por conversation),
+  // crio mais 2 conversations dedicadas:
+  const convForEmail = await makeConversation({
+    tenantId: tenantA.id,
+    channelId: channelA.id,
+  });
+  emailDataA = await makeConversationEmailData({
+    conversationId: convForEmail.id,
+    tenantId: tenantA.id,
+  });
+  const convForWa = await makeConversation({
+    tenantId: tenantA.id,
+    channelId: channelA.id,
+  });
+  waDataA = await makeConversationWhatsappData({
+    conversationId: convForWa.id,
+    tenantId: tenantA.id,
+  });
+  agentHistoryA = await makeConversationAgentHistory({
+    conversationId: conversationA.id,
+    tenantId: tenantA.id,
+    toAgentId: agentA.id,
+  });
+  interventionA = await makeConversationIntervention({
+    conversationId: conversationA.id,
+    tenantId: tenantA.id,
+    operatorAccountId: accountX.id,
+  });
+  turnA = await makeTurn({
+    conversationId: conversationA.id,
+    tenantId: tenantA.id,
+  });
 });
 
 afterAll(async () => {
   // Limpa pra nao poluir runs subsequentes do mesmo container.
-  // Ordem FK (filhos primeiro): message_templates, agent_tools, agent_knowledge
+  // Ordem FK (filhos primeiro): turns, intervention, agent_history, voice/email/wa data
+  //         -> conversations -> message_templates, agent_tools, agent_knowledge
   //         -> knowledge_sources -> routing_rules -> audit_logs -> agent_versions
   //         -> agents -> departments -> channels -> memberships -> tenants -> accounts.
+  // (CASCADE da Conversation deleta sub-tables/turns/agent_history/intervention,
+  // mas explícito é mais seguro pra ordem.)
   await migratorPrisma().$transaction(async (tx) => {
+    await tx.turn.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
+    await tx.conversationIntervention.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.conversationAgentHistory.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.conversationVoiceData.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.conversationEmailData.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.conversationWhatsappData.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.conversation.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.messageTemplate.deleteMany({
       where: { tenantId: { in: [tenantA.id, tenantB.id] } },
     });
@@ -582,6 +673,123 @@ describe("RLS: message_templates", () => {
   });
 });
 
+describe("RLS: conversations", () => {
+  it("tenant B nao enxerga conversation do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.conversation.findUnique({ where: { id: conversationA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany conversation do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.conversation.updateMany({
+        where: { id: conversationA.id },
+        data: { summary: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+  });
+
+  it("tenant B nao consegue deleteMany conversation do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.conversation.deleteMany({ where: { id: conversationA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().conversation.findUnique({
+      where: { id: conversationA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+});
+
+describe("RLS: conversation sub-tables (voice/email/whatsapp)", () => {
+  it("tenant B nao enxerga voice_data do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.conversationVoiceData.findUnique({ where: { conversationId: voiceDataA.conversationId } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao enxerga email_data do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.conversationEmailData.findUnique({ where: { conversationId: emailDataA.conversationId } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao enxerga whatsapp_data do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.conversationWhatsappData.findUnique({
+        where: { conversationId: waDataA.conversationId },
+      }),
+    );
+    expect(found).toBeNull();
+  });
+});
+
+describe("RLS: conversation_agent_history", () => {
+  it("tenant B nao enxerga agent_history do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.conversationAgentHistory.findUnique({ where: { id: agentHistoryA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue deleteMany agent_history do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.conversationAgentHistory.deleteMany({ where: { id: agentHistoryA.id } }),
+    );
+    expect(result.count).toBe(0);
+  });
+});
+
+describe("RLS: conversation_intervention", () => {
+  it("tenant B nao enxerga intervention do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.conversationIntervention.findUnique({ where: { id: interventionA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue deleteMany intervention do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.conversationIntervention.deleteMany({ where: { id: interventionA.id } }),
+    );
+    expect(result.count).toBe(0);
+  });
+});
+
+describe("RLS: turns", () => {
+  it("tenant B nao enxerga turn do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.turn.findUnique({ where: { id: turnA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany turn do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.turn.updateMany({
+        where: { id: turnA.id },
+        data: { contentText: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+  });
+
+  it("tenant B nao consegue deleteMany turn do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.turn.deleteMany({ where: { id: turnA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().turn.findUnique({ where: { id: turnA.id } });
+    expect(reread).not.toBeNull();
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
     const list = await appPrisma().tenant.findMany({
@@ -650,6 +858,16 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
     const list = await appPrisma().messageTemplate.findMany({
       where: { id: messageTemplateA.id },
     });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, conversations devolve 0 rows", async () => {
+    const list = await appPrisma().conversation.findMany({ where: { id: conversationA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, turns devolve 0 rows", async () => {
+    const list = await appPrisma().turn.findMany({ where: { id: turnA.id } });
     expect(list).toEqual([]);
   });
 });

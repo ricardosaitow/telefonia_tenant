@@ -18,12 +18,19 @@ import type {
   AgentVersion,
   AuditLog,
   Channel,
+  Conversation,
+  ConversationAgentHistory,
+  ConversationEmailData,
+  ConversationIntervention,
+  ConversationVoiceData,
+  ConversationWhatsappData,
   Department,
   KnowledgeSource,
   MessageTemplate,
   RoutingRule,
   Tenant,
   TenantMembership,
+  Turn,
 } from "@/generated/prisma/client";
 
 import { asMigrator } from "./tenants";
@@ -304,6 +311,152 @@ export async function makeMessageTemplate(
         key: input.key ?? `template_${id.slice(0, 8)}`,
         locale: input.locale ?? "pt-BR",
         content: input.content ?? "Olá!",
+      },
+    }),
+  );
+}
+
+export interface MakeConversationInput {
+  tenantId: string;
+  channelId: string;
+  status?: "active" | "ended" | "abandoned" | "escalated";
+  currentAgentId?: string;
+  currentDepartmentId?: string;
+  customerIdentifier?: string;
+}
+
+export async function makeConversation(input: MakeConversationInput): Promise<Conversation> {
+  return asMigrator((tx) =>
+    tx.conversation.create({
+      data: {
+        tenantId: input.tenantId,
+        channelId: input.channelId,
+        status: input.status ?? "active",
+        currentAgentId: input.currentAgentId ?? null,
+        currentDepartmentId: input.currentDepartmentId ?? null,
+        customerIdentifier: input.customerIdentifier ?? `+5511${Math.floor(Math.random() * 1e9)}`,
+      },
+    }),
+  );
+}
+
+export interface MakeConversationVoiceDataInput {
+  conversationId: string;
+  tenantId: string;
+}
+
+export async function makeConversationVoiceData(
+  input: MakeConversationVoiceDataInput,
+): Promise<ConversationVoiceData> {
+  return asMigrator((tx) =>
+    tx.conversationVoiceData.create({
+      data: {
+        conversationId: input.conversationId,
+        tenantId: input.tenantId,
+        sipCallId: `sip-${crypto.randomUUID()}`,
+      },
+    }),
+  );
+}
+
+export interface MakeConversationEmailDataInput {
+  conversationId: string;
+  tenantId: string;
+}
+
+export async function makeConversationEmailData(
+  input: MakeConversationEmailDataInput,
+): Promise<ConversationEmailData> {
+  return asMigrator((tx) =>
+    tx.conversationEmailData.create({
+      data: {
+        conversationId: input.conversationId,
+        tenantId: input.tenantId,
+        subject: "Test subject",
+        fromAddress: "test@example.com",
+      },
+    }),
+  );
+}
+
+export interface MakeConversationWhatsappDataInput {
+  conversationId: string;
+  tenantId: string;
+}
+
+export async function makeConversationWhatsappData(
+  input: MakeConversationWhatsappDataInput,
+): Promise<ConversationWhatsappData> {
+  return asMigrator((tx) =>
+    tx.conversationWhatsappData.create({
+      data: {
+        conversationId: input.conversationId,
+        tenantId: input.tenantId,
+        waChatId: `wa-${crypto.randomUUID().slice(0, 12)}`,
+      },
+    }),
+  );
+}
+
+export interface MakeConversationAgentHistoryInput {
+  conversationId: string;
+  tenantId: string;
+  fromAgentId?: string;
+  toAgentId: string;
+}
+
+export async function makeConversationAgentHistory(
+  input: MakeConversationAgentHistoryInput,
+): Promise<ConversationAgentHistory> {
+  return asMigrator((tx) =>
+    tx.conversationAgentHistory.create({
+      data: {
+        conversationId: input.conversationId,
+        tenantId: input.tenantId,
+        fromAgentId: input.fromAgentId ?? null,
+        toAgentId: input.toAgentId,
+      },
+    }),
+  );
+}
+
+export interface MakeConversationInterventionInput {
+  conversationId: string;
+  tenantId: string;
+  operatorAccountId: string;
+  modeEntered?: "observing" | "assisted" | "takeover";
+}
+
+export async function makeConversationIntervention(
+  input: MakeConversationInterventionInput,
+): Promise<ConversationIntervention> {
+  return asMigrator((tx) =>
+    tx.conversationIntervention.create({
+      data: {
+        conversationId: input.conversationId,
+        tenantId: input.tenantId,
+        operatorAccountId: input.operatorAccountId,
+        modeEntered: input.modeEntered ?? "observing",
+      },
+    }),
+  );
+}
+
+export interface MakeTurnInput {
+  conversationId: string;
+  tenantId: string;
+  speaker?: "customer" | "agent" | "system" | "tool" | "human_operator";
+  contentText?: string;
+}
+
+export async function makeTurn(input: MakeTurnInput): Promise<Turn> {
+  return asMigrator((tx) =>
+    tx.turn.create({
+      data: {
+        conversationId: input.conversationId,
+        tenantId: input.tenantId,
+        speaker: input.speaker ?? "customer",
+        contentText: input.contentText ?? "Hello",
       },
     }),
   );
