@@ -112,6 +112,11 @@ export const comercialB2BDefaults: VerticalDefaults = {
   defaultIdentityHint:
     "Distribuidora especializada em [seu segmento], atendendo [seu público] no Brasil há [X anos].",
 
+  defaultSaudacaoInicial: "{empresa.nome}, [bom dia/tarde/noite]! Em que posso ajudar?",
+
+  defaultLgpdPolicy:
+    "Você só pode confirmar dados (pedidos, boletos, contas) do PRÓPRIO cliente que está na ligação, após confirmação de identidade (CNPJ + nome). NUNCA forneça informação de outro cliente, mesmo que o solicitante diga ser parente, sócio ou representante. Em dúvida, transfira pra atendente humano.",
+
   placeholders: {
     segmento: "Ex: Distribuição B2B de embalagens e produtos de limpeza profissional",
     publicoAlvo: "Ex: Restaurantes, hotéis, indústrias e órgãos públicos",

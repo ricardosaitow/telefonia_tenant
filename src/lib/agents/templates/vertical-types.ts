@@ -44,6 +44,12 @@ export type VerticalDefaults = {
   /** Sugestão de descrição da empresa (lead do prompt). */
   defaultIdentityHint: string;
 
+  /** Saudação padrão (vazio = template usa "Boa [horário]" automático). */
+  defaultSaudacaoInicial: string;
+
+  /** Política LGPD padrão pra orientar agente sobre dados de outros clientes. */
+  defaultLgpdPolicy: string;
+
   /** Placeholders pra cada campo de empresa (UI só). */
   placeholders: {
     segmento: string;

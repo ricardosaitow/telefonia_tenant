@@ -31,7 +31,6 @@ type AgentFormProps = {
     nome: string;
     descricao: string | null;
     departmentId: string;
-    systemPrompt: string;
   };
 };
 
@@ -48,7 +47,6 @@ export function AgentForm({ mode, departments, defaultValues }: AgentFormProps) 
           nome: defaultValues.nome,
           descricao: defaultValues.descricao ?? "",
           departmentId: defaultValues.departmentId,
-          systemPrompt: defaultValues.systemPrompt,
         }
       : undefined,
     onValidate({ formData }) {
@@ -118,23 +116,6 @@ export function AgentForm({ mode, departments, defaultValues }: AgentFormProps) 
         />
         {fields.descricao.errors?.length ? (
           <p className="text-destructive text-sm">{fields.descricao.errors.join(" ")}</p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.systemPrompt.id}>System prompt (modo expert — opcional)</Label>
-        <Textarea
-          {...getTextareaProps(fields.systemPrompt)}
-          key={fields.systemPrompt.key}
-          rows={6}
-          placeholder="Vazio = configure pelo wizard. Preenchido aqui = sobrescreve TODO o template gerado."
-        />
-        <p className="text-muted-foreground text-xs">
-          Recomendado: deixe vazio e use o wizard de configuração (logo abaixo, após criar). Este
-          campo só pra colar prompt cru pré-pronto.
-        </p>
-        {fields.systemPrompt.errors?.length ? (
-          <p className="text-destructive text-sm">{fields.systemPrompt.errors.join(" ")}</p>
         ) : null}
       </div>
 

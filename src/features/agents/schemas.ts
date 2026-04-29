@@ -20,12 +20,6 @@ export const agentInputSchema = z.object({
     .optional()
     .transform((v) => (v && v.length > 0 ? v : undefined)),
   departmentId: z.string().uuid(),
-  systemPrompt: z
-    .string()
-    .max(50000)
-    .trim()
-    .optional()
-    .transform((v) => (v && v.length > 0 ? v : undefined)),
 });
 
 export const updateAgentInputSchema = agentInputSchema.extend({

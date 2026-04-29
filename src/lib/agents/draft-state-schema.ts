@@ -37,6 +37,19 @@ export const personaSchema = z.object({
   energia: z.enum(["calma", "equilibrada", "animada"]).default("equilibrada"),
   traits: z.array(personaTraitSchema).default([]),
   idioma: z.enum(["pt-BR", "en-US", "es-ES"]).default("pt-BR"),
+  /** Forma de tratamento ao cliente. */
+  tratamento: z.enum(["voce", "senhor_senhora", "voces_informal"]).default("voce"),
+  /**
+   * Quando perguntado "você é robô/IA?" o agente:
+   *   - assume_ia: confirma ("sim, sou uma assistente virtual")
+   *   - explica_se_perguntado: confirma só se perguntado direto, senão age natural
+   *   - nega: NUNCA confirma (assume persona humana — risco LGPD; usar com cuidado)
+   */
+  autoIdentificacao: z
+    .enum(["assume_ia", "explica_se_perguntado", "nega"])
+    .default("explica_se_perguntado"),
+  /** Adapta saudação ao horário (Bom dia/tarde/noite automático). */
+  saudacaoPorHorario: z.boolean().default(true),
 });
 
 // ---------------------------------------------------------------------------
@@ -52,6 +65,38 @@ export const empresaSchema = z.object({
   endereco: z.string().trim().max(300).optional(),
   site: z.string().trim().max(200).optional(),
   outrosCanais: z.string().trim().max(300).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Glossário — termos próprios da empresa (key + significado/sinônimos).
+// Vai pro prompt como referência: "Quando o cliente disser X, é {significado}".
+// ---------------------------------------------------------------------------
+export const glossarioItemSchema = z.object({
+  termo: z.string().trim().min(1).max(120),
+  significado: z.string().trim().min(1).max(500),
+});
+
+// ---------------------------------------------------------------------------
+// Comportamento — regras de como o agente age e fala.
+// ---------------------------------------------------------------------------
+export const comportamentoSchema = z.object({
+  /** Saudação inicial. Vazio = template padrão por horário. */
+  saudacaoInicial: z.string().trim().max(500).optional(),
+  /**
+   * Como pedir/confirmar identidade do cliente:
+   *   - none: agente não pede dados de identificação
+   *   - phone: confirma número/contato apenas
+   *   - cpf_cnpj: solicita CPF ou CNPJ
+   *   - full: pede nome + CPF/CNPJ + email/telefone
+   */
+  identificacaoCliente: z.enum(["none", "phone", "cpf_cnpj", "full"]).default("none"),
+  /** Restrições de linguagem (lista). Ex: "nunca usar 'querida'", "evitar gírias". */
+  restricoesLinguagem: z.array(z.string().trim().min(1).max(200)).default([]),
+  /**
+   * LGPD/privacidade: textarea livre. Padrão usado pra orientar agente sobre o
+   * que pode/não pode confirmar de outro cliente (vazio = vai default genérico).
+   */
+  lgpdPolicy: z.string().trim().max(1000).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -95,8 +140,10 @@ export const transferenciaSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Verticais — templates pré-fabricados. `custom` = sem template, usa
-// `systemPromptOverride` literal.
+// Verticais — templates pré-fabricados.
+// `custom` permanece no enum pra backwards-compat com agents legados que
+// foram migrados pra esse vertical durante o autosave do parseDraftState.
+// UI atual NÃO mostra "custom" como opção (escape hatch removido).
 // ---------------------------------------------------------------------------
 export const verticalSchema = z.enum([
   "comercial-b2b",
@@ -132,6 +179,12 @@ export const draftStateSchema = z.object({
 
   situacoesCriticas: situacoesCriticasSchema.partial().optional(),
   transferencia: transferenciaSchema.partial().optional(),
+
+  /** Glossário de termos próprios da empresa. */
+  glossario: z.array(glossarioItemSchema).default([]),
+
+  /** Bloco de comportamento (saudação, identificação, restrições, LGPD). */
+  comportamento: comportamentoSchema.partial().optional(),
 
   encerramento: z.string().trim().max(500).optional(),
 

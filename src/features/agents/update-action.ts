@@ -32,23 +32,15 @@ export async function updateAgentAction(_prevState: unknown, formData: FormData)
     });
     if (!before) return { count: 0 };
 
-    const draft = (before.draftState ?? {}) as Record<string, unknown>;
-    // O AgentForm legado escreve em `systemPrompt` cru. Pra manter compat
-    // com o renderer novo (que lê `systemPromptOverride`), espelha o valor
-    // nas DUAS chaves. Se user limpar o prompt no form, NÃO limpa o
-    // override — usar o wizard pra editar override de verdade.
-    const draftPatch: Record<string, unknown> = { ...draft };
-    if (submission.value.systemPrompt) {
-      draftPatch["systemPrompt"] = submission.value.systemPrompt;
-      draftPatch["systemPromptOverride"] = submission.value.systemPrompt;
-    }
+    // updateAction só atualiza identidade do agent (nome/descricao/department).
+    // Configuração do prompt (vertical/persona/etc) flui pelo wizard via
+    // saveAgentWizardSection — não toca em draftState aqui.
     const after = await tx.agent.update({
       where: { id: submission.value.id },
       data: {
         nome: submission.value.nome,
         descricao: submission.value.descricao ?? null,
         departmentId: submission.value.departmentId,
-        draftState: draftPatch as object,
       },
       select: {
         id: true,

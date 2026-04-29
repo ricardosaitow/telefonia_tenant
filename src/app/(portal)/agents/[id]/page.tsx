@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/composed/page-header";
 import { Card } from "@/components/ui/card";
 import { getAgentById, listAgentVersions, listDepartmentOptions } from "@/features/agents/queries";
+import { listKnowledgeSources } from "@/features/knowledge/queries";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { can } from "@/lib/rbac/permissions";
 
@@ -33,15 +34,22 @@ export default async function EditAgentPage({ params }: EditAgentPageProps) {
   }
 
   const { id } = await params;
-  const [agent, departments, versions] = await Promise.all([
+  const [agent, departments, versions, knowledgeAll] = await Promise.all([
     getAgentById(ctx.activeTenantId, id),
     listDepartmentOptions(ctx.activeTenantId),
     listAgentVersions(ctx.activeTenantId, id),
+    listKnowledgeSources(ctx.activeTenantId),
   ]);
   if (!agent) notFound();
+  // Forma o shape esperado pelo wizard (KnowledgeRef).
+  const knowledge = knowledgeAll.map((k) => ({
+    id: k.id,
+    nome: k.nome,
+    descricao: k.descricao,
+    scope: k.scope,
+    status: k.status,
+  }));
 
-  const draft = (agent.draftState ?? {}) as { systemPrompt?: string };
-  const systemPrompt = draft.systemPrompt ?? "";
   const hasCurrent = agent.currentVersionId !== null;
 
   return (
@@ -81,7 +89,6 @@ export default async function EditAgentPage({ params }: EditAgentPageProps) {
             nome: agent.nome,
             descricao: agent.descricao,
             departmentId: agent.departmentId,
-            systemPrompt,
           }}
         />
       </Card>
@@ -95,7 +102,7 @@ export default async function EditAgentPage({ params }: EditAgentPageProps) {
           resultado.
         </p>
       </div>
-      <AgentWizardForm agentId={agent.id} initialDraft={agent.draftState} />
+      <AgentWizardForm agentId={agent.id} initialDraft={agent.draftState} knowledge={knowledge} />
 
       <KnowledgeSection activeTenantId={ctx.activeTenantId} agentId={agent.id} canManage />
 

@@ -68,6 +68,12 @@ const TRAIT_LABEL: Record<string, string> = {
   confiante: "confiante",
   discreta: "discreta",
 };
+const TRATAMENTO_LABEL: Record<NonNullable<DraftState["persona"]>["tratamento"] & string, string> =
+  {
+    voce: '"você" (informal, próximo)',
+    senhor_senhora: '"senhor/senhora" (formal, respeitoso)',
+    voces_informal: '"vocês" (plural inclusivo, B2B coletivo)',
+  };
 
 export function renderSystemPrompt(input: RenderInput): string {
   const draft = parseDraftState(input.draftState);
@@ -89,6 +95,9 @@ export function renderSystemPrompt(input: RenderInput): string {
     energia: draft.persona?.energia ?? "equilibrada",
     traits: draft.persona?.traits ?? [],
     idioma: draft.persona?.idioma ?? "pt-BR",
+    tratamento: draft.persona?.tratamento ?? "voce",
+    autoIdentificacao: draft.persona?.autoIdentificacao ?? "explica_se_perguntado",
+    saudacaoPorHorario: draft.persona?.saudacaoPorHorario ?? true,
   };
 
   // Tools: filtra pelo catálogo (defesa contra lixo no draft) E completa
@@ -138,6 +147,16 @@ export function renderSystemPrompt(input: RenderInput): string {
 
   const encerramento = draft.encerramento || verticalDefaults.defaultEncerramento;
 
+  // Comportamento — merge user vs vertical defaults pros campos que têm
+  // contraparte no vertical.
+  const comportamentoUser = draft.comportamento ?? {};
+  const comportamento = {
+    saudacaoInicial: comportamentoUser.saudacaoInicial || verticalDefaults.defaultSaudacaoInicial,
+    identificacaoCliente: comportamentoUser.identificacaoCliente ?? "none",
+    restricoesLinguagem: comportamentoUser.restricoesLinguagem ?? [],
+    lgpdPolicy: comportamentoUser.lgpdPolicy || verticalDefaults.defaultLgpdPolicy,
+  };
+
   const vars = {
     agent: input.agent,
     tenant: input.tenant,
@@ -152,7 +171,13 @@ export function renderSystemPrompt(input: RenderInput): string {
       energia: persona.energia,
       energiaLabel: ENERGIA_LABEL[persona.energia],
       traits: persona.traits.map((t) => TRAIT_LABEL[t] ?? t),
+      tratamento: persona.tratamento,
+      tratamentoLabel: TRATAMENTO_LABEL[persona.tratamento],
+      autoIdentificacao: persona.autoIdentificacao,
+      saudacaoPorHorario: persona.saudacaoPorHorario,
     },
+    glossario: draft.glossario,
+    comportamento,
     empresa: {
       segmento: draft.empresa?.segmento ?? "",
       publicoAlvo: draft.empresa?.publicoAlvo ?? "",

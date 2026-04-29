@@ -136,6 +136,135 @@ describe("renderSystemPrompt", () => {
     expect(result).toContain("leve e divertida");
   });
 
+  it("tratamento muda label no bloco IDIOMA E TRATAMENTO", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        persona: { tratamento: "senhor_senhora" },
+      },
+    });
+    expect(result).toContain("# IDIOMA E TRATAMENTO");
+    expect(result).toContain('"senhor/senhora"');
+  });
+
+  it("autoIdentificacao=nega gera bloco de desvio", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        persona: { autoIdentificacao: "nega" },
+      },
+    });
+    expect(result).toContain("# AUTO-IDENTIFICAÇÃO");
+    expect(result).toContain("NUNCA confirme nem negue");
+  });
+
+  it("autoIdentificacao=assume_ia confirma com naturalidade", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        persona: { autoIdentificacao: "assume_ia" },
+      },
+    });
+    expect(result).toContain("Você é uma assistente virtual (IA)");
+  });
+
+  it("glossario aparece no prompt quando preenchido", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        glossario: [
+          { termo: "OS", significado: "Ordem de Serviço (chamado de manutenção)" },
+          { termo: "PAX", significado: "passageiros (no contexto de hotel)" },
+        ],
+      },
+    });
+    expect(result).toContain("# GLOSSÁRIO INTERNO");
+    expect(result).toContain("**OS**");
+    expect(result).toContain("Ordem de Serviço");
+    expect(result).toContain("**PAX**");
+  });
+
+  it("saudação personalizada substitui default por horário", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        comportamento: {
+          saudacaoInicial: "Helena, da Verde Pack. Como posso ajudar?",
+        },
+      },
+    });
+    expect(result).toContain("# SAUDAÇÃO INICIAL");
+    expect(result).toContain("Helena, da Verde Pack. Como posso ajudar?");
+    expect(result).not.toContain("[bom dia até 12h");
+  });
+
+  it("identificacaoCliente=full pede nome+CPF+contato", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        comportamento: { identificacaoCliente: "full" },
+      },
+    });
+    expect(result).toContain("# IDENTIFICAÇÃO DO CLIENTE");
+    expect(result).toContain("nome completo + CPF/CNPJ + email/telefone");
+  });
+
+  it("identificacaoCliente=none não gera bloco", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        comportamento: { identificacaoCliente: "none" },
+      },
+    });
+    expect(result).not.toContain("# IDENTIFICAÇÃO DO CLIENTE");
+  });
+
+  it("restricoes de linguagem entram em LIMITES junto com nuncas", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        limites: ["nunca prometa prazo"],
+        comportamento: {
+          restricoesLinguagem: ["nunca usar 'querida' ou 'amor'", "evitar gírias"],
+        },
+      },
+    });
+    expect(result).toContain("nunca prometa prazo");
+    expect(result).toContain("nunca usar 'querida' ou 'amor'");
+    expect(result).toContain("evitar gírias");
+  });
+
+  it("lgpdPolicy gera bloco PRIVACIDADE / LGPD", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        comportamento: {
+          lgpdPolicy: "Política custom: confirme nome + CPF antes de qualquer info de cadastro.",
+        },
+      },
+    });
+    expect(result).toContain("# PRIVACIDADE / LGPD");
+    expect(result).toContain("Política custom");
+  });
+
+  it("comercial-b2b usa lgpdPolicy default quando user não preenche", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: { vertical: "comercial-b2b" },
+    });
+    expect(result).toContain("# PRIVACIDADE / LGPD");
+    expect(result).toContain("PRÓPRIO cliente que está na ligação");
+  });
+
   it("workflows desabilitados não vão pro prompt", () => {
     const result = renderSystemPrompt({
       ...baseInput,
