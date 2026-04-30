@@ -83,7 +83,9 @@ Mesmas regras platform-wide que valem em `/root/telefonia-ia/.claude/CLAUDE.md`.
 
 (Esta seção cresce ao longo do projeto. Hooks de pós-erro escrevem aqui automaticamente quando padrão recorrente.)
 
-- (vazio)
+- **shadcn `radix-nova` style traz variants Tailwind 4 que assumem custom variants não definidos no projeto.** Templates novos vêm com classes tipo `data-active:`, `data-horizontal:`, `data-vertical:` que parecem semântica direta dos atributos Radix mas NÃO funcionam — Radix usa `data-state="active"` (não `data-active`) e `data-orientation="horizontal"` (não `data-horizontal`). Quando `shadcn add` instalar componente novo, sempre traduzir essas variants pro syntax raw Tailwind 4: `data-[state=active]:`, `data-[orientation=horizontal]:`, etc. Caso real: `tabs.tsx` instalou com layout completamente quebrado (TabsList em row em vez de col, tab ativa sem destaque visual) por causa disso.
+- **Inputs uncontrolled (`defaultValue`) só leem state no mount.** Mudanças no state após mount NÃO atualizam o input. Em UI que troca placeholders/defaults condicionalmente (ex: vertical do agent muda → defaults dos campos mudam), os inputs já renderizados ficam congelados. Fix: forçar re-mount via `key` que muda quando o contexto muda (`key={\`field-${draft.vertical}\`}`). Ou tornar controlled (`value` + `onChange`).
+- **Server Actions disparadas por `onBlur` perdem a última edição quando user troca de tab/route antes de tabular fora.** React não dispara `blur` no unmount. Em wizard com tabs, isso = perda silenciosa. Fix: chamar `document.activeElement.blur()` antes da troca de tab/navegação pra forçar o handler.
 
 ## Como pedir ajuda nesta base de código
 

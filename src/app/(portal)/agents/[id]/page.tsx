@@ -3,13 +3,13 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/composed/page-header";
 import { Card } from "@/components/ui/card";
 import { getAgentById, listAgentVersions, listDepartmentOptions } from "@/features/agents/queries";
-import { listKnowledgeSources } from "@/features/knowledge/queries";
+import { listKnowledgeForAgent } from "@/features/knowledge/queries";
+import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { can } from "@/lib/rbac/permissions";
 
 import { AgentForm } from "../agent-form";
 import { DeleteAgentButton } from "./delete-button";
-import { KnowledgeSection } from "./knowledge-section";
 import { PauseAgentButton } from "./pause-button";
 import { PublishAgentButton } from "./publish-button";
 import { ToolsSection } from "./tools-section";
@@ -34,13 +34,22 @@ export default async function EditAgentPage({ params }: EditAgentPageProps) {
   }
 
   const { id } = await params;
-  const [agent, departments, versions, knowledgeAll] = await Promise.all([
-    getAgentById(ctx.activeTenantId, id),
+  const agent = await getAgentById(ctx.activeTenantId, id);
+  if (!agent) notFound();
+  // Knowledge cascateia por scope: tenant ∪ department(do agente) ∪ agent.
+  // É o que o data plane vai consultar em runtime — wizard mostra o mesmo.
+  const [departments, versions, knowledgeAll, tenant] = await Promise.all([
     listDepartmentOptions(ctx.activeTenantId),
     listAgentVersions(ctx.activeTenantId, id),
-    listKnowledgeSources(ctx.activeTenantId),
+    listKnowledgeForAgent(ctx.activeTenantId, id, agent.departmentId),
+    withTenantContext(ctx.activeTenantId, (tx) =>
+      tx.tenant.findUnique({
+        where: { id: ctx.activeTenantId },
+        select: { nomeFantasia: true },
+      }),
+    ),
   ]);
-  if (!agent) notFound();
+  if (!tenant) notFound();
   // Forma o shape esperado pelo wizard (KnowledgeRef).
   const knowledge = knowledgeAll.map((k) => ({
     id: k.id,
@@ -93,18 +102,14 @@ export default async function EditAgentPage({ params }: EditAgentPageProps) {
         />
       </Card>
 
-      <div className="flex flex-col gap-2">
-        <h2 className="font-display text-foreground text-lg font-semibold">
-          Configuração do agente
-        </h2>
-        <p className="text-muted-foreground text-sm">
-          Cada seção é salva automaticamente. Clique em &ldquo;Ver prompt&rdquo; ao final pra ver o
-          resultado.
-        </p>
-      </div>
-      <AgentWizardForm agentId={agent.id} initialDraft={agent.draftState} knowledge={knowledge} />
-
-      <KnowledgeSection activeTenantId={ctx.activeTenantId} agentId={agent.id} canManage />
+      <Card variant="solid" padding="lg" className="flex-col">
+        <AgentWizardForm
+          agentId={agent.id}
+          initialDraft={agent.draftState}
+          knowledge={knowledge}
+          tenantNomeFantasia={tenant.nomeFantasia}
+        />
+      </Card>
 
       <ToolsSection activeTenantId={ctx.activeTenantId} agentId={agent.id} canManage />
 

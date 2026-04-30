@@ -109,19 +109,6 @@ export const comercialB2BDefaults: VerticalDefaults = {
   defaultEncerramento:
     "Posso ajudar com mais alguma coisa? Caso contrário, agradeço seu contato e tenha um ótimo dia.",
 
-  defaultIdentityHint:
-    "Distribuidora especializada em [seu segmento], atendendo [seu público] no Brasil há [X anos].",
-
-  defaultSaudacaoInicial: "{empresa.nome}, [bom dia/tarde/noite]! Em que posso ajudar?",
-
   defaultLgpdPolicy:
     "Você só pode confirmar dados (pedidos, boletos, contas) do PRÓPRIO cliente que está na ligação, após confirmação de identidade (CNPJ + nome). NUNCA forneça informação de outro cliente, mesmo que o solicitante diga ser parente, sócio ou representante. Em dúvida, transfira pra atendente humano.",
-
-  placeholders: {
-    segmento: "Ex: Distribuição B2B de embalagens e produtos de limpeza profissional",
-    publicoAlvo: "Ex: Restaurantes, hotéis, indústrias e órgãos públicos",
-    diferenciais:
-      "Ex: Entrega no mesmo dia em SP capital, frota própria, mais de 5 mil itens em estoque",
-    horarioComercial: "Seg-Sex 8h-18h, Sáb 8h-12h",
-  },
 };

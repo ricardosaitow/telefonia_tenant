@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/composed/page-header";
 import { Card } from "@/components/ui/card";
+import { listAgentOptions, listDepartmentOptions } from "@/features/agents/queries";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { can } from "@/lib/rbac/permissions";
 
@@ -13,6 +14,11 @@ export default async function NewKnowledgePage() {
     redirect("/knowledge");
   }
 
+  const [departments, agents] = await Promise.all([
+    listDepartmentOptions(ctx.activeTenantId),
+    listAgentOptions(ctx.activeTenantId),
+  ]);
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8">
       <PageHeader
@@ -20,7 +26,7 @@ export default async function NewKnowledgePage() {
         description="V1 sem upload real — só metadados. Status default: pronto."
       />
       <Card variant="solid" padding="lg">
-        <KnowledgeForm mode="create" />
+        <KnowledgeForm mode="create" departments={departments} agents={agents} />
       </Card>
     </div>
   );

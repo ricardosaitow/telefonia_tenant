@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Claude Code runtime — locks de tarefa agendada não devem ser versionados.
+.claude/scheduled_tasks.lock
+
 # dependencies
 /node_modules
 /.pnp
@@ -65,3 +68,4 @@ prisma/generated/
 .claude/settings.local.json
 
 /src/generated/prisma
+scheduled_tasks.lock

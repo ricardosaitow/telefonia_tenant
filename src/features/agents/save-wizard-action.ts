@@ -11,14 +11,14 @@ import { assertCan } from "@/lib/rbac/permissions";
 /**
  * Salva uma seção do wizard no `Agent.draftState`.
  *
- * Cada seção (identity / persona / empresa / tools / workflows / limites /
- * situacoesCriticas / transferencia / encerramento / vertical / override)
+ * Cada seção (vertical / persona / comportamento / toolsEnabled / workflows /
+ * limites / situacoesCriticas / transferencia / encerramento / override)
  * envia um JSON serializado no campo `payload` + `section` indicando qual
  * chave do draftState atualizar.
  *
  * Merge: lê draftState atual, sobrescreve a seção, escreve de volta.
- * Vertical / encerramento / override / toolsEnabled / limites / workflows
- * são chaves "raiz" — substituídas por inteiro.
+ * Toda seção aqui listada é uma chave "raiz" do draftState — substituída
+ * por inteiro (sem deep-merge).
  *
  * NÃO publica — só atualiza rascunho. Publish é ação separada que
  * renderiza prompt e cria AgentVersion.
@@ -26,9 +26,8 @@ import { assertCan } from "@/lib/rbac/permissions";
 
 const sectionSchema = z.enum([
   "vertical",
-  "identity",
   "persona",
-  "empresa",
+  "comportamento",
   "toolsEnabled",
   "workflows",
   "limites",

@@ -59,6 +59,23 @@ export async function listDepartmentOptions(activeTenantId: string) {
 }
 
 /**
+ * Lista agents minimal pra select (knowledge form, routing rules, etc.).
+ * Inclui nome do departamento pra desambiguar agentes com nomes parecidos.
+ */
+export async function listAgentOptions(activeTenantId: string) {
+  return withTenantContext(activeTenantId, (tx) =>
+    tx.agent.findMany({
+      orderBy: [{ nome: "asc" }],
+      select: {
+        id: true,
+        nome: true,
+        department: { select: { nome: true } },
+      },
+    }),
+  );
+}
+
+/**
  * Lista versões publicadas de um agente, mais recente primeiro.
  */
 export async function listAgentVersions(activeTenantId: string, agentId: string) {
@@ -81,3 +98,4 @@ export type AgentListItem = Awaited<ReturnType<typeof listAgents>>[number];
 export type AgentDetail = NonNullable<Awaited<ReturnType<typeof getAgentById>>>;
 export type AgentVersionListItem = Awaited<ReturnType<typeof listAgentVersions>>[number];
 export type DepartmentOption = Awaited<ReturnType<typeof listDepartmentOptions>>[number];
+export type AgentOption = Awaited<ReturnType<typeof listAgentOptions>>[number];

@@ -1,17 +1,23 @@
 /**
  * Schema do `Agent.draftState` (autosave do wizard).
  *
- * Refator do wizard estruturado: o cliente NÃO escreve `systemPrompt` cru —
- * preenche campos de cada bloco (identidade, persona, empresa, tools, etc),
- * e o renderer (`render-prompt.ts`) gera o prompt final no `publish`.
+ * Princípio de design: o draftState carrega APENAS configuração de
+ * comportamento do agente. Dados institucionais da empresa (segmento,
+ * horário, glossário, política de troca, etc) NÃO entram aqui — vão pra
+ * KnowledgeSource (RAG) com scope=tenant. Isso evita duplicação cross-agent
+ * e mantém o prompt enxuto.
  *
- * Backwards-compat: agents antigos que tinham `{systemPrompt: "..."}` cru no
- * draftState continuam funcionando — `vertical: "custom"` + `systemPromptOverride`
- * preserva o texto literal, sem renderizar template.
+ * Estrutura típica:
+ *   - vertical: template de partida (defaults de workflow/limite/situação)
+ *   - persona: tom, energia, traits, idioma, tratamento, auto-identificação
+ *   - comportamento: saudação, encerramento, identificação cliente, LGPD,
+ *     restrições de linguagem
+ *   - toolsEnabled / workflows / limites / situacoesCriticas / transferencia
  *
- * Schema é validado no parse (todo wizard que escreve em draftState passa por
- * aqui antes de salvar). Em runtime, leitura usa `safeParse` pra tolerar
- * agents antigos / shapes parciais (autosave por seção).
+ * Backwards-compat: agents antigos com `{systemPrompt: "..."}` cru OU com
+ * campos legados (empresa, glossario, identity) continuam carregáveis —
+ * `parseDraftState` aceita shape antigo, mas renderer ignora os campos
+ * institucionais (knowledge é a fonte canônica agora).
  */
 import { z } from "zod";
 
@@ -33,6 +39,13 @@ export const personaTraitSchema = z.enum([
 ]);
 
 export const personaSchema = z.object({
+  /**
+   * Nome da personagem — como ela se apresenta ao CLIENTE final ("Helena",
+   * "Ana", "Sofia"). Diferente de `Agent.nome`, que é o label
+   * ADMINISTRATIVO usado nas listas/dashboards do portal ("Comercial N1",
+   * "Suporte Pós-venda"). Vai pro prompt na linha "Você é X, atendente da Y".
+   */
+  nomePersonagem: z.string().trim().min(1).max(50).optional(),
   tom: z.enum(["formal", "neutro", "casual"]).default("neutro"),
   energia: z.enum(["calma", "equilibrada", "animada"]).default("equilibrada"),
   traits: z.array(personaTraitSchema).default([]),
@@ -50,30 +63,6 @@ export const personaSchema = z.object({
     .default("explica_se_perguntado"),
   /** Adapta saudação ao horário (Bom dia/tarde/noite automático). */
   saudacaoPorHorario: z.boolean().default(true),
-});
-
-// ---------------------------------------------------------------------------
-// Empresa — fatos básicos (cliente conhece de cor).
-// `horarioComercial` é texto livre por ora (ex.: "Seg-Sex 8h-18h, Sáb 8h-12h").
-// V1.x estrutura por dia.
-// ---------------------------------------------------------------------------
-export const empresaSchema = z.object({
-  segmento: z.string().trim().max(120).default(""),
-  publicoAlvo: z.string().trim().max(200).default(""),
-  diferenciais: z.string().trim().max(500).default(""),
-  horarioComercial: z.string().trim().max(200).default(""),
-  endereco: z.string().trim().max(300).optional(),
-  site: z.string().trim().max(200).optional(),
-  outrosCanais: z.string().trim().max(300).optional(),
-});
-
-// ---------------------------------------------------------------------------
-// Glossário — termos próprios da empresa (key + significado/sinônimos).
-// Vai pro prompt como referência: "Quando o cliente disser X, é {significado}".
-// ---------------------------------------------------------------------------
-export const glossarioItemSchema = z.object({
-  termo: z.string().trim().min(1).max(120),
-  significado: z.string().trim().min(1).max(500),
 });
 
 // ---------------------------------------------------------------------------
@@ -97,14 +86,6 @@ export const comportamentoSchema = z.object({
    * que pode/não pode confirmar de outro cliente (vazio = vai default genérico).
    */
   lgpdPolicy: z.string().trim().max(1000).optional(),
-});
-
-// ---------------------------------------------------------------------------
-// Identidade — descrição curta da empresa (1-3 linhas que viram o "lead"
-// do prompt). Vai logo após "Você é {nome} da {empresa}".
-// ---------------------------------------------------------------------------
-export const identitySchema = z.object({
-  descricaoCurta: z.string().trim().max(500).default(""),
 });
 
 // ---------------------------------------------------------------------------
@@ -150,6 +131,8 @@ export const verticalSchema = z.enum([
   "suporte-pos-venda",
   "recepcao",
   "varejo-b2c",
+  "cobranca",
+  "educacao",
   "custom",
 ]);
 
@@ -165,9 +148,7 @@ export const draftStateSchema = z.object({
 
   vertical: verticalSchema.default("comercial-b2b"),
 
-  identity: identitySchema.partial().optional(),
   persona: personaSchema.partial().optional(),
-  empresa: empresaSchema.partial().optional(),
 
   /** Lista de tool keys habilitadas. Validamos contra catálogo no renderer. */
   toolsEnabled: z.array(z.string()).default([]),
@@ -179,9 +160,6 @@ export const draftStateSchema = z.object({
 
   situacoesCriticas: situacoesCriticasSchema.partial().optional(),
   transferencia: transferenciaSchema.partial().optional(),
-
-  /** Glossário de termos próprios da empresa. */
-  glossario: z.array(glossarioItemSchema).default([]),
 
   /** Bloco de comportamento (saudação, identificação, restrições, LGPD). */
   comportamento: comportamentoSchema.partial().optional(),
@@ -217,10 +195,13 @@ export type DraftState = z.infer<typeof draftStateSchema>;
  * shapes diferentes — `safeParse` retorna defaults seguros.
  *
  * Detecção de LEGACY: input tem `systemPrompt` mas NÃO tem nenhum campo do
- * wizard novo (vertical / persona / empresa / etc) → migra pra
- * `vertical=custom` + `systemPromptOverride` automaticamente. Sem isso,
- * o default do schema (`vertical=comercial-b2b`) faria o renderer ignorar
- * o systemPrompt legado.
+ * wizard novo (vertical / persona / etc) → migra pra `vertical=custom` +
+ * `systemPromptOverride` automaticamente. Sem isso, o default do schema
+ * (`vertical=comercial-b2b`) faria o renderer ignorar o systemPrompt legado.
+ *
+ * Campos institucionais antigos (empresa, glossario, identity) que possam
+ * existir em drafts antigos são SILENCIOSAMENTE IGNORADOS no parse — Zod
+ * descarta keys não declaradas no schema.
  */
 export function parseDraftState(raw: unknown): DraftState {
   const obj = (raw ?? {}) as Record<string, unknown>;
@@ -229,7 +210,6 @@ export function parseDraftState(raw: unknown): DraftState {
     obj["vertical"] === undefined &&
     obj["systemPromptOverride"] === undefined &&
     obj["persona"] === undefined &&
-    obj["empresa"] === undefined &&
     obj["toolsEnabled"] === undefined;
 
   if (isLegacy) {

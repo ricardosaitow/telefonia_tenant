@@ -8,6 +8,7 @@ import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 
+import { assertScopeRefValid } from "./queries";
 import { updateKnowledgeSourceInputSchema } from "./schemas";
 
 export async function updateKnowledgeSourceAction(_prevState: unknown, formData: FormData) {
@@ -19,10 +20,29 @@ export async function updateKnowledgeSourceAction(_prevState: unknown, formData:
   const ctx = await assertSessionAndMembership();
   assertCan(ctx.membership.globalRole, "knowledge:manage");
 
+  const refValid = await assertScopeRefValid(
+    ctx.activeTenantId,
+    submission.value.scope,
+    submission.value.scopeRefId,
+  );
+  if (!refValid) {
+    return submission.reply({
+      fieldErrors: { scopeRefId: ["Item selecionado não existe ou não pertence a este tenant."] },
+    });
+  }
+
   const result = await withTenantContext(ctx.activeTenantId, async (tx) => {
     const before = await tx.knowledgeSource.findUnique({
       where: { id: submission.value.id },
-      select: { id: true, nome: true, descricao: true, scope: true, tipo: true, language: true },
+      select: {
+        id: true,
+        nome: true,
+        descricao: true,
+        scope: true,
+        scopeRefId: true,
+        tipo: true,
+        language: true,
+      },
     });
     if (!before) return { count: 0 };
 
@@ -32,10 +52,19 @@ export async function updateKnowledgeSourceAction(_prevState: unknown, formData:
         nome: submission.value.nome,
         descricao: submission.value.descricao ?? null,
         scope: submission.value.scope,
+        scopeRefId: submission.value.scopeRefId ?? null,
         tipo: submission.value.tipo,
         language: submission.value.language ?? null,
       },
-      select: { id: true, nome: true, descricao: true, scope: true, tipo: true, language: true },
+      select: {
+        id: true,
+        nome: true,
+        descricao: true,
+        scope: true,
+        scopeRefId: true,
+        tipo: true,
+        language: true,
+      },
     });
 
     await recordAuditInTx(

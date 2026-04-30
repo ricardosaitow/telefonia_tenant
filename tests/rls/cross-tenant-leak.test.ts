@@ -21,7 +21,6 @@
  *   - routing_rules      (RLS no `tenant_id`)
 
  *   - knowledge_sources  (RLS no `tenant_id`)
- *   - agent_knowledge    (RLS no `tenant_id` denormalizado)
  *   - agent_tools        (RLS no `tenant_id`)
  *   - message_templates  (RLS no `tenant_id`)
  *   - conversations      (RLS no `tenant_id`)
@@ -43,7 +42,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type {
   Account,
   Agent,
-  AgentKnowledge,
   AgentTool,
   AgentVersion,
   AuditLog,
@@ -69,7 +67,6 @@ import type {
 import {
   makeAccount,
   makeAgent,
-  makeAgentKnowledge,
   makeAgentTool,
   makeAgentVersion,
   makeAuditLog,
@@ -107,7 +104,6 @@ let channelA: Channel;
 let extensionA: Extension;
 let routingRuleA: RoutingRule;
 let knowledgeSourceA: KnowledgeSource;
-let agentKnowledgeA: AgentKnowledge;
 let agentToolA: AgentTool;
 let messageTemplateA: MessageTemplate;
 let conversationA: Conversation;
@@ -163,11 +159,6 @@ beforeAll(async () => {
     targetDepartmentId: departmentA.id,
   });
   knowledgeSourceA = await makeKnowledgeSource({ tenantId: tenantA.id });
-  agentKnowledgeA = await makeAgentKnowledge({
-    tenantId: tenantA.id,
-    agentId: agentA.id,
-    knowledgeSourceId: knowledgeSourceA.id,
-  });
   agentToolA = await makeAgentTool({ tenantId: tenantA.id, agentId: agentA.id });
   messageTemplateA = await makeMessageTemplate({ tenantId: tenantA.id });
   conversationA = await makeConversation({
@@ -241,7 +232,7 @@ beforeAll(async () => {
 afterAll(async () => {
   // Limpa pra nao poluir runs subsequentes do mesmo container.
   // Ordem FK (filhos primeiro): turns, intervention, agent_history, voice/email/wa data
-  //         -> conversations -> message_templates, agent_tools, agent_knowledge
+  //         -> conversations -> message_templates, agent_tools
   //         -> knowledge_sources -> routing_rules -> audit_logs -> agent_versions
   //         -> agents -> departments -> channels -> memberships -> tenants -> accounts.
   // (CASCADE da Conversation deleta sub-tables/turns/agent_history/intervention,
@@ -268,7 +259,6 @@ afterAll(async () => {
       where: { tenantId: { in: [tenantA.id, tenantB.id] } },
     });
     await tx.agentTool.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
-    await tx.agentKnowledge.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.knowledgeSource.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.routingRule.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.auditLog.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
@@ -670,32 +660,6 @@ describe("RLS: knowledge_sources", () => {
   });
 });
 
-describe("RLS: agent_knowledge", () => {
-  it("tenant B nao enxerga agent_knowledge do tenant A", async () => {
-    const found = await asTenant(tenantB.id, (tx) =>
-      tx.agentKnowledge.findFirst({
-        where: {
-          agentId: agentKnowledgeA.agentId,
-          knowledgeSourceId: agentKnowledgeA.knowledgeSourceId,
-        },
-      }),
-    );
-    expect(found).toBeNull();
-  });
-
-  it("tenant B nao consegue deleteMany agent_knowledge do tenant A", async () => {
-    const result = await asTenant(tenantB.id, (tx) =>
-      tx.agentKnowledge.deleteMany({
-        where: {
-          agentId: agentKnowledgeA.agentId,
-          knowledgeSourceId: agentKnowledgeA.knowledgeSourceId,
-        },
-      }),
-    );
-    expect(result.count).toBe(0);
-  });
-});
-
 describe("RLS: agent_tools", () => {
   it("tenant B nao enxerga agent_tool do tenant A", async () => {
     const found = await asTenant(tenantB.id, (tx) =>
@@ -1046,13 +1010,6 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, knowledge_sources devolve 0 rows", async () => {
     const list = await appPrisma().knowledgeSource.findMany({
       where: { id: knowledgeSourceA.id },
-    });
-    expect(list).toEqual([]);
-  });
-
-  it("sem app.current_tenant setado, agent_knowledge devolve 0 rows", async () => {
-    const list = await appPrisma().agentKnowledge.findMany({
-      where: { agentId: agentKnowledgeA.agentId },
     });
     expect(list).toEqual([]);
   });

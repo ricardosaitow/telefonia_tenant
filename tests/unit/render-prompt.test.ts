@@ -17,7 +17,7 @@ describe("renderSystemPrompt", () => {
       },
     });
 
-    // Ancoras sanity (texto chave de cada bloco)
+    // Sem persona.nomePersonagem no draft, usa agent.nome (Helena no fixture).
     expect(result).toContain("Você é Helena");
     expect(result).toContain("Verde Pack");
     expect(result).toContain("# CAPACIDADES (TOOLS)");
@@ -117,6 +117,18 @@ describe("renderSystemPrompt", () => {
     ).toThrow("draft_invalid_system_prompt");
   });
 
+  it("persona.nomePersonagem sobrescreve agent.nome na linha de identidade", () => {
+    const result = renderSystemPrompt({
+      ...baseInput,
+      draftState: {
+        vertical: "comercial-b2b",
+        persona: { nomePersonagem: "Sofia" },
+      },
+    });
+    expect(result).toContain("Você é Sofia");
+    expect(result).not.toContain("Você é Helena");
+  });
+
   it("traits são usadas no bloco persona", () => {
     const result = renderSystemPrompt({
       ...baseInput,
@@ -171,21 +183,26 @@ describe("renderSystemPrompt", () => {
     expect(result).toContain("Você é uma assistente virtual (IA)");
   });
 
-  it("glossario aparece no prompt quando preenchido", () => {
+  it("dados institucionais NÃO entram no prompt mesmo se ainda no draft (legacy)", () => {
+    // Drafts antigos podem ter empresa/glossario/identity. Renderer ignora —
+    // info da empresa agora vai EXCLUSIVAMENTE via knowledge.
     const result = renderSystemPrompt({
       ...baseInput,
+      // Campos legacy (glossario, identity, empresa) ignorados pelo Zod
+      // — não existem mais no schema. Renderer não emite blocos pra eles.
       draftState: {
         vertical: "comercial-b2b",
-        glossario: [
-          { termo: "OS", significado: "Ordem de Serviço (chamado de manutenção)" },
-          { termo: "PAX", significado: "passageiros (no contexto de hotel)" },
-        ],
+        glossario: [{ termo: "OS", significado: "Ordem de Serviço" }],
+        identity: { descricaoCurta: "lead descriptivo" },
+        empresa: { segmento: "B2B distribuição", horarioComercial: "Seg-Sex 8-18" },
       },
     });
-    expect(result).toContain("# GLOSSÁRIO INTERNO");
-    expect(result).toContain("**OS**");
-    expect(result).toContain("Ordem de Serviço");
-    expect(result).toContain("**PAX**");
+    expect(result).not.toContain("# GLOSSÁRIO INTERNO");
+    expect(result).not.toContain("**OS**");
+    expect(result).not.toContain("Ordem de Serviço");
+    expect(result).not.toContain("# A EMPRESA");
+    expect(result).not.toContain("B2B distribuição");
+    expect(result).not.toContain("lead descriptivo");
   });
 
   it("saudação personalizada substitui default por horário", () => {

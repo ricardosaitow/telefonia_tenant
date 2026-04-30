@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/composed/page-header";
 import { Card } from "@/components/ui/card";
+import { listAgentOptions, listDepartmentOptions } from "@/features/agents/queries";
 import { getKnowledgeSourceById } from "@/features/knowledge/queries";
 import { KNOWLEDGE_SCOPE_LABEL, KNOWLEDGE_TYPE_LABEL } from "@/features/knowledge/schemas";
 import { assertSessionAndMembership } from "@/lib/rbac";
@@ -21,7 +22,11 @@ export default async function EditKnowledgePage({ params }: EditPageProps) {
   }
 
   const { id } = await params;
-  const ks = await getKnowledgeSourceById(ctx.activeTenantId, id);
+  const [ks, departments, agents] = await Promise.all([
+    getKnowledgeSourceById(ctx.activeTenantId, id),
+    listDepartmentOptions(ctx.activeTenantId),
+    listAgentOptions(ctx.activeTenantId),
+  ]);
   if (!ks) notFound();
 
   return (
@@ -34,11 +39,14 @@ export default async function EditKnowledgePage({ params }: EditPageProps) {
       <Card variant="solid" padding="lg">
         <KnowledgeForm
           mode="edit"
+          departments={departments}
+          agents={agents}
           defaultValues={{
             id: ks.id,
             nome: ks.nome,
             descricao: ks.descricao,
             scope: ks.scope,
+            scopeRefId: ks.scopeRefId,
             tipo: ks.tipo,
             language: ks.language,
           }}

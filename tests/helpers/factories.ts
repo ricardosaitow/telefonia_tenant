@@ -13,7 +13,6 @@
 import type {
   Account,
   Agent,
-  AgentKnowledge,
   AgentTool,
   AgentVersion,
   AuditLog,
@@ -278,24 +277,6 @@ export async function makeKnowledgeSource(
         scopeRefId: input.scopeRefId ?? null,
         tipo: input.tipo ?? "manual_text",
         nome: input.nome ?? `Knowledge ${id.slice(0, 8)}`,
-      },
-    }),
-  );
-}
-
-export interface MakeAgentKnowledgeInput {
-  tenantId: string;
-  agentId: string;
-  knowledgeSourceId: string;
-}
-
-export async function makeAgentKnowledge(input: MakeAgentKnowledgeInput): Promise<AgentKnowledge> {
-  return asMigrator((tx) =>
-    tx.agentKnowledge.create({
-      data: {
-        tenantId: input.tenantId,
-        agentId: input.agentId,
-        knowledgeSourceId: input.knowledgeSourceId,
       },
     }),
   );

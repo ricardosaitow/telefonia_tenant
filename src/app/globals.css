@@ -35,6 +35,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -110,6 +112,11 @@
   --accent-foreground: var(--text-primary);
   --destructive: oklch(0.55 0.22 27);
   --destructive-foreground: #ffffff;
+  /* Sucesso (steps completos, validação OK). Verde nítido (hue 145 = pure
+     green; chroma 0.20 = saturado). Light theme usa tom escuro pra contrastar
+     com bg branco; foreground=branco caso usar bg-success solid. */
+  --success: oklch(0.55 0.2 145);
+  --success-foreground: #ffffff;
   --border: var(--glass-border);
   --input: var(--glass-bg);
   --ring: var(--accent-color-base);
@@ -156,6 +163,11 @@
   --accent-foreground: var(--text-primary);
   --destructive: oklch(0.65 0.22 25);
   --destructive-foreground: #ffffff;
+  /* Sucesso no dark — verde luminoso (lightness 0.78 + chroma 0.2) pra
+     "pop" sobre bg escuro. Foreground branco escuro pra usar caso
+     bg-success solid (raro — geralmente usamos só text-success no check). */
+  --success: oklch(0.78 0.2 145);
+  --success-foreground: #050810;
   --border: var(--glass-border);
   --input: var(--glass-bg);
   --ring: var(--accent-light);

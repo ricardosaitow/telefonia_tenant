@@ -8,6 +8,7 @@ import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 
+import { assertScopeRefValid } from "./queries";
 import { knowledgeSourceInputSchema } from "./schemas";
 
 export async function createKnowledgeSourceAction(_prevState: unknown, formData: FormData) {
@@ -19,13 +20,26 @@ export async function createKnowledgeSourceAction(_prevState: unknown, formData:
   const ctx = await assertSessionAndMembership();
   assertCan(ctx.membership.globalRole, "knowledge:manage");
 
+  // Valida referência scope→dept/agent ANTES da create. RLS garante que
+  // findUnique só acha registro do tenant ativo — se vier null, o id veio
+  // de outro tenant ou não existe.
+  const refValid = await assertScopeRefValid(
+    ctx.activeTenantId,
+    submission.value.scope,
+    submission.value.scopeRefId,
+  );
+  if (!refValid) {
+    return submission.reply({
+      fieldErrors: { scopeRefId: ["Item selecionado não existe ou não pertence a este tenant."] },
+    });
+  }
+
   await withTenantContext(ctx.activeTenantId, async (tx) => {
     const ks = await tx.knowledgeSource.create({
       data: {
         tenantId: ctx.activeTenantId,
         scope: submission.value.scope,
-        // scopeRefId fica null no V1 (UI ainda não pede pra dept/agent).
-        scopeRefId: null,
+        scopeRefId: submission.value.scopeRefId ?? null,
         tipo: submission.value.tipo,
         nome: submission.value.nome,
         descricao: submission.value.descricao ?? null,

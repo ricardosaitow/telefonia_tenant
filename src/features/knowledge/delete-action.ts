@@ -24,7 +24,6 @@ export async function deleteKnowledgeSourceAction(formData: FormData) {
     });
     if (!before) return;
 
-    // Cascade remove agent_knowledge relations.
     await tx.knowledgeSource.delete({ where: { id: parsed.data.id } });
     await recordAuditInTx(
       tx,

@@ -11,8 +11,9 @@ import type { NextAuthConfig } from "next-auth";
  * em path. Não precisa instanciar provider, não precisa lookup DB.
  *
  * Os redirects abaixo são:
- *  - rota protegida (/tenants, /dashboard, etc) sem JWT → /login
- *  - /login ou /signup com JWT → / (que decide /tenants ou /dashboard)
+ *  - / é pública (landing): segue sempre; page.tsx redireciona logado pra /tenants
+ *  - /login e /signup: públicas; com JWT redireciona pra /
+ *  - resto (/tenants, /dashboard, etc) sem JWT → /login
  *
  * **Cookies** (seguranca.md §6.2): em produção (`NODE_ENV=production`)
  * usamos `__Host-` prefix — exige Secure + Path=/ + sem Domain. Em dev,
@@ -63,11 +64,12 @@ export const authConfigEdge: NextAuthConfig = {
       const path = nextUrl.pathname;
 
       const isAuthPage = path === "/login" || path === "/signup";
+      const isPublicPage = path === "/" || isAuthPage;
 
-      // Tudo que NÃO é auth page exige login (matcher do proxy já filtra
+      // Tudo que NÃO é página pública exige login (matcher do proxy já filtra
       // assets/api). Cobre /tenants, /dashboard, /departments, e qualquer
       // futura rota do portal sem precisar manter lista aqui.
-      if (!isAuthPage && !isLoggedIn) {
+      if (!isPublicPage && !isLoggedIn) {
         const url = nextUrl.clone();
         url.pathname = "/login";
         url.search = "";

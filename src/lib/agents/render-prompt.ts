@@ -90,7 +90,11 @@ export function renderSystemPrompt(input: RenderInput): string {
   const verticalDefaults = getVerticalDefaults(draft.vertical);
 
   // Persona com fallback pros defaults do schema.
+  // nomePersonagem: o que o cliente OUVE. Fallback pro agent.nome (label
+  // administrativo) se não definido — mas user é incentivado a definir um
+  // nome humano (Helena, Ana...) no wizard.
   const persona = {
+    nomePersonagem: draft.persona?.nomePersonagem?.trim() || input.agent.nome,
     tom: draft.persona?.tom ?? "neutro",
     energia: draft.persona?.energia ?? "equilibrada",
     traits: draft.persona?.traits ?? [],
@@ -148,10 +152,12 @@ export function renderSystemPrompt(input: RenderInput): string {
   const encerramento = draft.encerramento || verticalDefaults.defaultEncerramento;
 
   // Comportamento — merge user vs vertical defaults pros campos que têm
-  // contraparte no vertical.
+  // contraparte no vertical. saudacaoInicial NÃO tem default por vertical:
+  // quando user deixa em branco, o template do prompt usa um fallback
+  // dinâmico com o nome do tenant + adaptação de horário.
   const comportamentoUser = draft.comportamento ?? {};
   const comportamento = {
-    saudacaoInicial: comportamentoUser.saudacaoInicial || verticalDefaults.defaultSaudacaoInicial,
+    saudacaoInicial: comportamentoUser.saudacaoInicial || "",
     identificacaoCliente: comportamentoUser.identificacaoCliente ?? "none",
     restricoesLinguagem: comportamentoUser.restricoesLinguagem ?? [],
     lgpdPolicy: comportamentoUser.lgpdPolicy || verticalDefaults.defaultLgpdPolicy,
@@ -160,10 +166,8 @@ export function renderSystemPrompt(input: RenderInput): string {
   const vars = {
     agent: input.agent,
     tenant: input.tenant,
-    identity: {
-      descricaoCurta: draft.identity?.descricaoCurta ?? "",
-    },
     persona: {
+      nomePersonagem: persona.nomePersonagem,
       idioma: persona.idioma,
       idiomaLabel: IDIOMA_LABEL[persona.idioma],
       tom: persona.tom,
@@ -176,17 +180,7 @@ export function renderSystemPrompt(input: RenderInput): string {
       autoIdentificacao: persona.autoIdentificacao,
       saudacaoPorHorario: persona.saudacaoPorHorario,
     },
-    glossario: draft.glossario,
     comportamento,
-    empresa: {
-      segmento: draft.empresa?.segmento ?? "",
-      publicoAlvo: draft.empresa?.publicoAlvo ?? "",
-      diferenciais: draft.empresa?.diferenciais ?? "",
-      horarioComercial: draft.empresa?.horarioComercial ?? "",
-      endereco: draft.empresa?.endereco ?? "",
-      site: draft.empresa?.site ?? "",
-      outrosCanais: draft.empresa?.outrosCanais ?? "",
-    },
     tools,
     knowledge: input.knowledge,
     workflows,

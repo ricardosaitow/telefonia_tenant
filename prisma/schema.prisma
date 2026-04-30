@@ -99,7 +99,6 @@ model Tenant {
   extensions            Extension[]
   routingRules          RoutingRule[]
   knowledgeSources      KnowledgeSource[]
-  agentKnowledge        AgentKnowledge[]
   agentTools            AgentTool[]
   messageTemplates      MessageTemplate[]
   conversations         Conversation[]
@@ -305,7 +304,6 @@ model Agent {
   currentVersion    AgentVersion?  @relation("AgentCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
 
   routingRulesAsTarget RoutingRule[] @relation("RoutingRuleTargetAgent")
-  knowledgeSources     AgentKnowledge[]
   tools                AgentTool[]
   conversationsAsCurrent Conversation[] @relation("ConversationCurrentAgent")
   conversationAgentHistoryFrom ConversationAgentHistory[] @relation("ConversationAgentHistoryFrom")
@@ -572,7 +570,6 @@ model KnowledgeSource {
   updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  agentKnowledge    AgentKnowledge[]
 
   @@index([tenantId])
   @@index([scope, scopeRefId])
@@ -607,27 +604,6 @@ enum KnowledgeSourceStatus {
   error
 
   @@map("knowledge_source_status")
-}
-
-// ---------------------------------------------------------------------------
-// AgentKnowledge — M:N Agent ↔ KnowledgeSource (Ontologia §6/§8).
-// `tenantId` denormalizado pra RLS sem JOIN.
-// ---------------------------------------------------------------------------
-model AgentKnowledge {
-  agentId           String          @map("agent_id") @db.Uuid
-  knowledgeSourceId String          @map("knowledge_source_id") @db.Uuid
-  tenantId          String          @map("tenant_id") @db.Uuid
-
-  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  agent             Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  knowledgeSource   KnowledgeSource @relation(fields: [knowledgeSourceId], references: [id], onDelete: Cascade)
-
-  @@id([agentId, knowledgeSourceId])
-  @@index([tenantId])
-  @@index([knowledgeSourceId])
-  @@map("agent_knowledge")
 }
 
 // ---------------------------------------------------------------------------
