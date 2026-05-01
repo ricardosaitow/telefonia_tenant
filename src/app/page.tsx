@@ -1,35 +1,29 @@
 import {
   ArrowRight,
-  BookOpen,
-  Bot,
   Briefcase,
-  Building2,
-  GraduationCap,
-  HeartHandshake,
-  ListTree,
+  Check,
+  Eye,
+  FileCheck,
+  Key,
   Lock,
   Mail,
   MessageSquare,
   Mic,
   Phone,
-  Receipt,
   ShieldCheck,
-  ShoppingBag,
-  Sparkles,
   UserCog,
-  Wallet,
-  Wrench,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { HeroMock } from "@/components/composed/hero-mock";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth/config";
 
 export const metadata: Metadata = {
-  title: "telefon.ia — Atendimento por IA com você no controle",
+  title: "Pekiart telefon.ia",
 };
 
 export default async function LandingPage() {
@@ -39,659 +33,808 @@ export default async function LandingPage() {
   }
 
   return (
-    <div className="dark bg-background text-foreground relative flex min-h-full flex-1 flex-col overflow-x-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 z-0 [background:radial-gradient(ellipse_at_15%_15%,var(--accent-glow),transparent_55%),radial-gradient(ellipse_at_85%_85%,rgba(139,92,246,0.10),transparent_55%),radial-gradient(ellipse_at_50%_40%,rgba(99,102,241,0.04),transparent_70%)]"
-      />
-
-      <div className="relative z-10 mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-6 lg:px-8">
-        <header className="flex items-center justify-between gap-4 py-7">
-          <Link href="/" aria-label="telefon.ia" className="flex items-center gap-3">
-            <Image
-              src="/brand/logo.webp"
-              alt=""
-              width={42}
-              height={42}
-              priority
-              className="drop-shadow-[0_0_24px_var(--accent-glow)]"
-            />
-            <span className="font-display text-foreground text-2xl leading-none font-semibold tracking-tight">
-              telefon<span className="text-accent-light">.ia</span>
+    <div className="dark bg-background text-foreground flex min-h-full flex-1 flex-col overflow-x-hidden">
+      {/* HEADER */}
+      <header className="bg-background border-border sticky top-0 z-50 border-b px-4 py-4 md:px-6">
+        <div className="mx-auto flex max-w-[1240px] items-center justify-between">
+          <Link href="/" aria-label="telefon.ia" className="flex items-center gap-2.5">
+            <Image src="/brand/logo.webp" alt="" width={32} height={32} priority />
+            <span className="font-display text-foreground text-lg leading-none font-semibold tracking-tight">
+              telefon
+              <span className="bg-gradient-to-r from-[var(--brand-gradient-from)] to-[var(--brand-gradient-to)] bg-clip-text text-transparent">
+                .ia
+              </span>
             </span>
           </Link>
-
           <nav className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">
               <Link href="/login">Entrar</Link>
             </Button>
-            <Button asChild size="sm">
-              <Link href="/signup">Cadastre-se</Link>
+            <Button asChild size="sm" className="px-3 md:px-4">
+              <Link href="/signup">
+                <span className="hidden md:inline">Registrar-se</span>
+                <span className="md:hidden">Registrar</span>
+              </Link>
             </Button>
           </nav>
-        </header>
+        </div>
+      </header>
 
-        <main className="flex flex-1 flex-col">
-          {/* HERO */}
-          <section className="grid items-center gap-12 py-16 lg:grid-cols-[1.05fr_1fr] lg:py-24">
-            <div className="flex flex-col gap-7">
-              <Eyebrow icon={<Sparkles className="size-3.5" />}>
-                Plataforma de atendimento por IA
-              </Eyebrow>
-              <h1 className="font-display text-4xl leading-[1.05] font-bold tracking-tight md:text-5xl lg:text-6xl">
-                Atendimento que conversa.
-                <br />
-                <span className="text-accent-light">Equipe que decide.</span>
-              </h1>
-              <p className="text-muted-foreground max-w-xl text-base leading-relaxed md:text-lg">
-                Voz, WhatsApp e email num modelo só. Configure departamentos, treine agentes pra
-                falar como sua empresa, e entre na conversa quando o assunto pedir um humano.
+      {/* HERO — gradient vertical bg → surface-1 */}
+      <div className="bg-gradient-to-b from-[var(--background)] from-0% via-[var(--surface-3)] via-40% to-[var(--surface-hero)]">
+        <section className="mx-auto flex max-w-[1240px] flex-col items-center px-4 pt-20 pb-16 md:px-6 lg:px-8 lg:pt-28 lg:pb-20">
+          <div className="flex w-full max-w-[58rem] flex-col">
+            <h1 className="font-display text-4xl leading-[1.08] font-bold tracking-tight md:text-5xl lg:text-[4rem]">
+              Atendimento que não dorme,
+              <br className="hidden lg:inline" /> não falta e não pede aumento.
+            </h1>
+            <div className="mt-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <p className="text-muted-foreground text-base md:text-lg">
+                Voz, WhatsApp e email. IA treinada com o tom da sua marca. Sempre disponível.
               </p>
-              <div className="text-muted-foreground flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                <ChannelBadge icon={<Mic className="size-4" />} label="Voz" />
-                <ChannelBadge icon={<MessageSquare className="size-4" />} label="WhatsApp" />
-                <ChannelBadge icon={<Mail className="size-4" />} label="Email" />
-              </div>
-            </div>
-
-            <HeroVisual />
-          </section>
-
-          {/* WORKFLOW */}
-          <section className="border-divider border-t py-20 md:py-28">
-            <SectionHead
-              eyebrow="Como funciona"
-              title="Do ramal à conversa, em 4 passos."
-              lead="Você cadastra a estrutura uma vez, treina os agentes do jeito da sua empresa, e a IA assume o atendimento — com você no controle do que importa."
-            />
-            <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <StepCard
-                index="01"
-                icon={<Phone className="size-5" />}
-                title="Conecte canais e ramais"
-                description="Cadastre números de voz, WhatsApp Business, inbox de email e ramais SIP do seu PBX. Tudo num lugar só."
-              />
-              <StepCard
-                index="02"
-                icon={<Building2 className="size-5" />}
-                title="Crie departamentos"
-                description="Comercial, suporte, financeiro, recepção. Cada departamento tem horário, regras e seu próprio time de agentes."
-              />
-              <StepCard
-                index="03"
-                icon={<Bot className="size-5" />}
-                title="Treine seus agentes"
-                description="Escolha um vertical pronto, ajuste persona e tom, suba documentos, ative tools. O prompt é gerado pra você."
-              />
-              <StepCard
-                index="04"
-                icon={<ListTree className="size-5" />}
-                title="Publique e roteie"
-                description="Direto, por horário, IVR ou triagem por IA. Cada chamada cai no agente certo do departamento certo."
-              />
-            </div>
-          </section>
-
-          {/* MULTI-CANAL */}
-          <section className="border-divider border-t py-20 md:py-28">
-            <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.05fr]">
-              <div className="flex flex-col gap-6">
-                <SectionHead
-                  align="left"
-                  eyebrow="Multi-canal nativo"
-                  title="Voz, WhatsApp e email no mesmo lugar."
-                  lead="Conversa é conversa. O cliente que ligou e voltou pelo WhatsApp aparece no mesmo histórico — com transcrição, métricas e custos comparáveis."
-                />
-                <ul className="grid gap-3">
-                  <BulletItem
-                    icon={<Mic className="size-4" />}
-                    title="Voz com IA"
-                    description="Atendimento por DID com transcrição em tempo real e gravação opcional."
-                  />
-                  <BulletItem
-                    icon={<MessageSquare className="size-4" />}
-                    title="WhatsApp Business"
-                    description="Janela de 24h, templates aprovados e mídia. Sessão e disparo cobrados separados."
-                  />
-                  <BulletItem
-                    icon={<Mail className="size-4" />}
-                    title="Email"
-                    description="Inbox com threading por Message-ID. Resposta no mesmo idioma do remetente."
-                  />
-                </ul>
-              </div>
-              <ConversationMock />
-            </div>
-          </section>
-
-          {/* TREINAMENTO DE AGENTE */}
-          <section className="border-divider border-t py-20 md:py-28">
-            <SectionHead
-              eyebrow="Treinamento de agente"
-              title="Cada departamento, um agente com a sua voz."
-              lead="Verticais prontas pra começar em minutos, persona configurável e conhecimento próprio. Sem prompt engineering."
-            />
-            <div className="mt-12 grid gap-4 lg:grid-cols-3">
-              <BigFeatureCard
-                icon={<Sparkles className="size-5" />}
-                title="6 verticais prontas"
-                description="Comercial B2B, suporte, recepção, varejo, cobrança, educação. Cada uma traz workflow, limites e situações críticas pré-configuradas."
+              <Link
+                href="/signup"
+                className="text-accent-light font-display inline-flex shrink-0 items-center gap-1 text-sm font-semibold hover:underline"
               >
-                <VerticalGrid />
-              </BigFeatureCard>
-              <BigFeatureCard
-                icon={<UserCog className="size-5" />}
-                title="Persona com tom próprio"
-                description="Nome do personagem, tom, energia, traits, idioma e tratamento. O agente fala do jeito da sua marca."
-              >
-                <PersonaPills />
-              </BigFeatureCard>
-              <BigFeatureCard
-                icon={<BookOpen className="size-5" />}
-                title="Conhecimento próprio"
-                description="Suba PDFs, planilhas, links e Notion. O escopo controla quem consulta o quê — tenant inteiro, departamento ou só um agente."
-              >
-                <KnowledgeChips />
-              </BigFeatureCard>
+                Comece agora
+                <ArrowRight className="size-3.5" />
+              </Link>
             </div>
-            <p className="text-muted-foreground mt-8 text-center text-sm">
-              Tools nativas: consultar produto, pedido, 2ª via de boleto, abrir chamado, enviar
-              email, agendar visita, transferir pra humano ou outro departamento.
+          </div>
+
+          {/* Product showcase */}
+          <div className="mt-12 w-full max-w-6xl">
+            <HeroMock />
+          </div>
+        </section>
+      </div>
+
+      <main className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-4 md:px-6 lg:px-8">
+        {/* FEATURE 1: Canais + Departamentos */}
+        <section className="border-border border-t py-20 md:py-28">
+          <div className="mb-10 grid items-start gap-6 px-4 md:grid-cols-2 md:px-8">
+            <h2 className="font-display self-center text-3xl font-bold tracking-tight md:text-4xl">
+              Presente em toda a jornada.
+            </h2>
+            <p className="text-muted-foreground text-base leading-relaxed md:text-lg">
+              Seu comercial vende, mas o pós-venda não existe. O suporte resolve, mas ninguém faz
+              follow-up. Seu agente está exatamente onde hoje seu cliente não encontra ninguém.
             </p>
-          </section>
-
-          {/* HUMANO NO CONTROLE */}
-          <section className="border-divider border-t py-20 md:py-28">
-            <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
-              <InterventionMock />
-              <div className="flex flex-col gap-6">
-                <SectionHead
-                  align="left"
-                  eyebrow="Humano no controle"
-                  title="A IA atende. Você decide quando entrar."
-                  lead="Operador acompanha conversas em tempo real, pode sussurrar com o agente ou assumir totalmente. Tudo registrado em auditoria."
-                />
-                <ul className="grid gap-3">
-                  <BulletItem
-                    icon={<UserCog className="size-4" />}
-                    title="Permissões por departamento"
-                    description="Operador só vê o que é dele. Supervisor gerencia agentes e conhecimento do depto. Owner enxerga tudo."
-                  />
-                  <BulletItem
-                    icon={<Sparkles className="size-4" />}
-                    title="Versionamento de agente"
-                    description="Edite à vontade em rascunho. Publica só quando estiver pronto — versões antigas ficam pra rollback."
-                  />
-                  <BulletItem
-                    icon={<ListTree className="size-4" />}
-                    title="Audit log de tudo"
-                    description="Quem mudou prompt, quem entrou na conversa, quem conectou integração. Hash chain pra detecção de tampering."
-                  />
-                </ul>
-              </div>
-            </div>
-          </section>
-
-          {/* SEGURANÇA */}
-          <section className="border-divider border-t py-20 md:py-28">
-            <SectionHead
-              eyebrow="Segurança"
-              title="Isolamento real, não promessa."
-              lead="Multi-tenant no banco. Segredos fora do código. MFA obrigatório. LGPD desde o primeiro registro."
-            />
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
-              <FeatureCard
-                icon={<Lock className="size-5" />}
-                title="Tenant isolation no Postgres"
-                description="Row-Level Security ativada em toda tabela com tenant_id. Mesmo um bug de query não consegue vazar entre clientes."
-              />
-              <FeatureCard
-                icon={<ShieldCheck className="size-5" />}
-                title="MFA mandatório"
-                description="TOTP obrigatório pra todos os papéis. Backup codes, dispositivo confiável de 30 dias, lockout em força bruta."
-              />
-              <FeatureCard
-                icon={<Receipt className="size-5" />}
-                title="LGPD nativo"
-                description="Workflow de direitos do titular: acesso, portabilidade, correção, apagamento. Tudo dentro do prazo legal."
-              />
-            </div>
-          </section>
-
-          {/* CTA FINAL */}
-          <section className="border-divider border-t py-20 md:py-28">
-            <div className="border-glass-border bg-glass-bg relative overflow-hidden rounded-2xl border p-10 backdrop-blur md:p-14">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_top_right,var(--accent-glow),transparent_60%)]"
-              />
-              <div className="relative flex flex-col items-center gap-6 text-center">
-                <h2 className="font-display text-3xl leading-tight font-bold tracking-tight md:text-4xl lg:text-5xl">
-                  Comece a atender com IA hoje.
-                </h2>
-                <p className="text-muted-foreground max-w-xl text-base md:text-lg">
-                  Crie sua conta, conecte um número e veja o primeiro agente respondendo em minutos.
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <Button asChild size="lg">
-                    <Link href="/signup">
-                      Cadastre-se
-                      <ArrowRight className="size-4" />
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" size="lg">
-                    <Link href="/login">Já tenho conta</Link>
-                  </Button>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Mock: timeline unificada */}
+            <div className="relative overflow-hidden rounded-2xl">
+              <div className="from-background pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-5% to-transparent to-40%" />
+              <div className="border-border bg-surface-1 rounded-2xl border p-5">
+                <div className="flex flex-col gap-3 text-xs">
+                  {[
+                    {
+                      time: "09:12",
+                      channel: "voice" as const,
+                      icon: <Mic className="size-3" />,
+                      text: "Cliente ligou pedindo orçamento de tinta acrílica 18L",
+                    },
+                    {
+                      time: "09:14",
+                      channel: "voice" as const,
+                      icon: <Mic className="size-3" />,
+                      text: "Helena enviou as 4 opções disponíveis com preço",
+                    },
+                    {
+                      time: "14:38",
+                      channel: "whatsapp" as const,
+                      icon: <MessageSquare className="size-3" />,
+                      text: 'Cliente voltou pelo WhatsApp: "fechado, manda o boleto"',
+                    },
+                    {
+                      time: "14:39",
+                      channel: "whatsapp" as const,
+                      icon: <MessageSquare className="size-3" />,
+                      text: "Helena gerou boleto e enviou link de pagamento",
+                    },
+                    {
+                      time: "19:05",
+                      channel: "email" as const,
+                      icon: <Mail className="size-3" />,
+                      text: "Cliente pediu nota fiscal por email",
+                    },
+                    {
+                      time: "19:06",
+                      channel: "email" as const,
+                      icon: <Mail className="size-3" />,
+                      text: "Helena enviou NF em PDF automaticamente",
+                    },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <span className="text-muted-foreground w-10 shrink-0 pt-0.5 text-right font-mono text-[10px]">
+                        {item.time}
+                      </span>
+                      <span
+                        className={`flex size-5 shrink-0 items-center justify-center rounded-md ${
+                          item.channel === "voice"
+                            ? "bg-primary/15 text-accent-light"
+                            : item.channel === "whatsapp"
+                              ? "bg-success/15 text-success"
+                              : "bg-accent-purple/15 text-accent-purple"
+                        }`}
+                      >
+                        {item.icon}
+                      </span>
+                      <span className="text-muted-foreground leading-relaxed">{item.text}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-          </section>
-        </main>
+            {/* Mock: departamentos + roteamento */}
+            <div className="relative overflow-hidden rounded-2xl">
+              <div className="from-background pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-5% to-transparent to-40%" />
+              <div className="border-border bg-surface-1 rounded-2xl border p-5">
+                <div className="flex flex-col gap-3 text-xs">
+                  <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                    Departamentos
+                  </span>
+                  {[
+                    {
+                      name: "Comercial",
+                      agents: "Helena, Pedro",
+                      channels: [
+                        <Mic key="m" className="size-2.5" />,
+                        <MessageSquare key="w" className="size-2.5" />,
+                      ],
+                      active: 3,
+                    },
+                    {
+                      name: "Suporte",
+                      agents: "Carlos",
+                      channels: [
+                        <MessageSquare key="w" className="size-2.5" />,
+                        <Mail key="e" className="size-2.5" />,
+                      ],
+                      active: 7,
+                    },
+                    {
+                      name: "Financeiro",
+                      agents: "Ana",
+                      channels: [<Mail key="e" className="size-2.5" />],
+                      active: 1,
+                    },
+                    {
+                      name: "Recepção",
+                      agents: "Helena",
+                      channels: [<Mic key="m" className="size-2.5" />],
+                      active: 2,
+                    },
+                  ].map((dept) => (
+                    <div
+                      key={dept.name}
+                      className="border-border bg-surface-2 flex items-center justify-between rounded-lg border px-3 py-2.5"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-foreground font-semibold">{dept.name}</span>
+                        <span className="text-muted-foreground text-[10px]">
+                          Agentes: {dept.agents}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-muted-foreground flex items-center gap-1">
+                          {dept.channels}
+                        </div>
+                        <span className="bg-primary/10 text-accent-light rounded-md px-2 py-0.5 text-[10px] font-semibold">
+                          {dept.active} ativas
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="border-border mt-2 border-t pt-3">
+                    <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                      Roteamento
+                    </span>
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {[
+                        { rule: "Horário comercial → Comercial", active: true },
+                        { rule: "Fora do horário → Recepção (IA)", active: true },
+                        { rule: "Assunto financeiro → Financeiro", active: true },
+                      ].map((r) => (
+                        <div key={r.rule} className="text-muted-foreground flex items-center gap-2">
+                          <Check className="text-success size-2.5 shrink-0" />
+                          <span>{r.rule}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-        <footer className="border-divider text-muted-foreground mt-auto flex flex-wrap items-center justify-between gap-3 border-t py-8 text-sm">
-          <span>© Pekiart {new Date().getFullYear()}</span>
-          <a
-            href="mailto:contato@pekiart.com.br"
-            className="hover:text-foreground transition-colors"
-          >
-            contato@pekiart.com.br
-          </a>
-        </footer>
-      </div>
-    </div>
-  );
-}
+        {/* FEATURE 2: Treinamento + Integrações */}
+        <section className="border-border border-t py-20 md:py-28">
+          <div className="mb-10 grid items-start gap-6 px-4 md:grid-cols-2 md:px-8">
+            <h2 className="font-display self-center text-3xl font-bold tracking-tight md:text-4xl">
+              Seu atendimento, no seu controle.
+            </h2>
+            <p className="text-muted-foreground text-base leading-relaxed md:text-lg">
+              Trocar o tom do agente é um chamado. Subir um catálogo novo, um orçamento. Conectar o
+              WhatsApp no telefone, um projeto de meses. Ou era — agora você resolve sozinho, quando
+              quiser.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Mock: wizard do agente */}
+            <div className="relative overflow-hidden rounded-2xl">
+              <div className="from-background pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-5% to-transparent to-40%" />
+              <div className="border-border bg-surface-1 rounded-2xl border p-5">
+                <div className="flex flex-col gap-4 text-xs">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                      Vertical
+                    </span>
+                    <span className="border-border bg-surface-2 text-foreground rounded-md border px-2.5 py-1.5">
+                      Comercial B2B
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                      Persona
+                    </span>
+                    <span className="border-border bg-surface-2 text-foreground rounded-md border px-2.5 py-1.5">
+                      Helena
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {["Empática", "Objetiva", "Confiante", "Paciente"].map((t) => (
+                        <span
+                          key={t}
+                          className="bg-primary/10 text-accent-light rounded-md px-2 py-0.5 text-[10px]"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                      Conhecimento
+                    </span>
+                    <div className="flex flex-col gap-1">
+                      {[
+                        { name: "catalogo-2026.pdf", size: "2.4 MB" },
+                        { name: "tabela-precos.xlsx", size: "890 KB" },
+                        { name: "politica-troca.pdf", size: "340 KB" },
+                      ].map((f) => (
+                        <span
+                          key={f.name}
+                          className="border-border bg-surface-2 text-muted-foreground flex items-center justify-between rounded-md border px-2.5 py-1.5"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <FileCheck className="text-success size-2.5" />
+                            {f.name}
+                          </span>
+                          <span className="text-[10px]">{f.size}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="border-border border-t pt-3">
+                    <span className="bg-primary text-primary-foreground font-display rounded-md px-3 py-1.5 text-[10px] font-semibold">
+                      Publicar agente
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Mock: integrações */}
+            <div className="relative overflow-hidden rounded-2xl">
+              <div className="from-background pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-5% to-transparent to-40%" />
+              <div className="border-border bg-surface-1 rounded-2xl border p-5">
+                <div className="flex flex-col gap-3 text-xs">
+                  <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                    Integrações
+                  </span>
+                  {[
+                    {
+                      name: "WhatsApp Business",
+                      status: "Conectado",
+                      connected: true,
+                      icon: <MessageSquare className="size-3.5" />,
+                    },
+                    {
+                      name: "PBX / SIP",
+                      status: "Conectado",
+                      connected: true,
+                      icon: <Phone className="size-3.5" />,
+                    },
+                    {
+                      name: "Email SMTP",
+                      status: "Conectado",
+                      connected: true,
+                      icon: <Mail className="size-3.5" />,
+                    },
+                    {
+                      name: "CRM",
+                      status: "Disponível",
+                      connected: false,
+                      icon: <UserCog className="size-3.5" />,
+                    },
+                    {
+                      name: "ERP",
+                      status: "Disponível",
+                      connected: false,
+                      icon: <Briefcase className="size-3.5" />,
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.name}
+                      className="border-border bg-surface-2 flex items-center justify-between rounded-lg border px-3 py-2.5"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`flex size-7 items-center justify-center rounded-md ${item.connected ? "bg-primary/15 text-accent-light" : "bg-surface-3 text-muted-foreground"}`}
+                        >
+                          {item.icon}
+                        </span>
+                        <span className="text-foreground font-semibold">{item.name}</span>
+                      </div>
+                      <span
+                        className={`flex items-center gap-1 text-[10px] ${item.connected ? "text-success" : "text-muted-foreground"}`}
+                      >
+                        {item.connected && <Check className="size-2.5" />}
+                        {item.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-/* ---------- helpers ---------- */
+        {/* FEATURE 3: Controle + Métricas */}
+        <section className="border-border border-t py-20 md:py-28">
+          <div className="mb-10 grid items-start gap-6 px-4 md:grid-cols-2 md:px-8">
+            <h2 className="font-display self-center text-3xl font-bold tracking-tight md:text-4xl">
+              Confie na IA. Cobre os resultados.
+            </h2>
+            <p className="text-muted-foreground text-base leading-relaxed md:text-lg">
+              Seu agente atende, resolve e reporta. Você acompanha os números, identifica o que
+              ajustar e só intervém quando faz sentido — não porque precisa, mas porque quer.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Mock: monitoramento ao vivo */}
+            <div className="relative overflow-hidden rounded-2xl">
+              <div className="from-background pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-5% to-transparent to-40%" />
+              <div className="border-border bg-surface-1 rounded-2xl border">
+                <div className="divide-border grid grid-cols-1 divide-y md:grid-cols-[1fr_160px] md:divide-x md:divide-y-0">
+                  <div className="flex flex-col gap-2 p-4 text-xs">
+                    <div className="flex items-center gap-2 pb-1">
+                      <span className="bg-success size-1.5 animate-pulse rounded-md" />
+                      <span className="text-success text-[10px] font-semibold">Ao vivo</span>
+                      <span className="text-muted-foreground text-[10px]">
+                        · Helena · Comercial
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-muted-foreground text-[10px]">Cliente</span>
+                      <span className="border-border bg-surface-2 text-foreground rounded-md border px-2.5 py-1.5">
+                        preciso cancelar meu pedido
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-accent-light text-[10px] font-semibold">Helena</span>
+                      <span className="bg-primary/10 text-foreground rounded-md px-2.5 py-1.5">
+                        posso oferecer estorno como crédito. o que acha?
+                      </span>
+                    </div>
+                    <span className="border-border bg-surface-2 inline-flex items-center gap-1.5 self-start rounded-md border px-2.5 py-1 text-[10px]">
+                      <Check className="text-success size-2.5" />
+                      <span className="text-success">Cancelamento evitado</span>
+                    </span>
+                  </div>
+                  <div className="bg-surface-2/30 flex flex-col gap-2 p-3 text-xs">
+                    <span className="bg-primary/10 text-accent-light flex items-center gap-1.5 rounded-md px-2 py-1">
+                      <Eye className="size-2.5" />
+                      Observando
+                    </span>
+                    <span className="border-accent-light/30 bg-primary/5 text-accent-light flex items-center gap-1.5 rounded-md border border-dashed px-2 py-1">
+                      <MessageSquare className="size-2.5" />
+                      Sussurrar
+                    </span>
+                    <span className="text-muted-foreground flex items-center gap-1.5 px-2 py-1">
+                      <UserCog className="size-2.5" />
+                      Assumir
+                    </span>
+                    <div className="bg-accent-light/10 border-accent-light/20 mt-auto rounded-md border p-2">
+                      <span className="text-accent-light text-[10px]">Sussurro:</span>
+                      <p className="text-foreground mt-0.5 text-[10px]">
+                        &ldquo;oferece crédito&rdquo;
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Mock: dashboard métricas */}
+            <div className="relative overflow-hidden rounded-2xl">
+              <div className="from-background pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-5% to-transparent to-40%" />
+              <div className="border-border bg-surface-1 rounded-2xl border p-5">
+                <div className="flex flex-col gap-4 text-xs">
+                  <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                    Hoje
+                  </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: "Atendimentos", value: "247", trend: "+12%" },
+                      { label: "Tempo médio", value: "1m 48s", trend: "-23%" },
+                      { label: "Resolução IA", value: "89%", trend: "+5%" },
+                      { label: "Satisfação", value: "4.8/5", trend: "+0.3" },
+                    ].map((m) => (
+                      <div
+                        key={m.label}
+                        className="border-border bg-surface-2 flex flex-col gap-1 rounded-lg border p-3"
+                      >
+                        <span className="text-muted-foreground text-[10px]">{m.label}</span>
+                        <div className="flex items-end justify-between">
+                          <span className="text-foreground text-lg font-semibold">{m.value}</span>
+                          <span className="text-success text-[10px] font-semibold">{m.trend}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-border border-t pt-3">
+                    <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                      Por departamento
+                    </span>
+                    <div className="mt-2 flex flex-col gap-2">
+                      {[
+                        { name: "Comercial", bar: "75%", count: "104" },
+                        { name: "Suporte", bar: "55%", count: "86" },
+                        { name: "Financeiro", bar: "20%", count: "32" },
+                        { name: "Recepção", bar: "15%", count: "25" },
+                      ].map((d) => (
+                        <div key={d.name} className="flex items-center gap-2">
+                          <span className="text-muted-foreground w-16 shrink-0">{d.name}</span>
+                          <div className="bg-surface-3 h-2 flex-1 rounded-md">
+                            <div
+                              className="bg-primary/40 h-2 rounded-md"
+                              style={{ width: d.bar }}
+                            />
+                          </div>
+                          <span className="text-foreground w-8 text-right font-mono text-[10px]">
+                            {d.count}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-function Eyebrow({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <span className="border-glass-border bg-glass-bg text-muted-foreground inline-flex items-center gap-2 self-start rounded-md border px-3 py-1 text-xs font-medium tracking-wide uppercase backdrop-blur">
-      {icon ? <span className="text-accent-light">{icon}</span> : null}
-      {children}
-    </span>
-  );
-}
+        {/* FEATURE 4: Segurança (mock + copy) */}
+        <section className="border-border border-t py-20 md:py-28">
+          <div className="mb-10 grid items-start gap-6 px-4 md:grid-cols-2 md:px-8">
+            <h2 className="font-display self-center text-3xl font-bold tracking-tight md:text-4xl">
+              Segurança que
+              <br />
+              você não precisa pensar.
+            </h2>
+            <p className="text-muted-foreground text-base leading-relaxed md:text-lg">
+              Seus dados protegidos por padrão. Sem configuração extra, sem preocupação.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Mock: painel de segurança */}
+            <div className="relative overflow-hidden rounded-2xl">
+              <div className="from-background pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-5% to-transparent to-40%" />
+              <div className="border-border bg-surface-1 rounded-2xl border p-5">
+                <div className="flex flex-col gap-3 text-xs">
+                  <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                    Status
+                  </span>
+                  {[
+                    {
+                      icon: <Lock className="size-3" />,
+                      label: "Dados protegidos",
+                      status: "Ativo",
+                    },
+                    {
+                      icon: <ShieldCheck className="size-3" />,
+                      label: "Login com verificação dupla",
+                      status: "Ativo",
+                    },
+                    {
+                      icon: <Eye className="size-3" />,
+                      label: "Registro de atividades",
+                      status: "Ativo",
+                    },
+                    {
+                      icon: <Key className="size-3" />,
+                      label: "Recuperação de senha",
+                      status: "Configurado",
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="border-border bg-surface-2 flex items-center justify-between rounded-lg border px-3 py-2.5"
+                    >
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        <span className="text-accent-light">{item.icon}</span>
+                        {item.label}
+                      </span>
+                      <span className="text-success flex items-center gap-1">
+                        <Check className="size-2.5" />
+                        {item.status}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="border-border mt-2 border-t pt-3">
+                    <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                      Últimas atividades
+                    </span>
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {[
+                        { time: "14:39", event: "Agente publicado por Maria" },
+                        { time: "13:15", event: "Login verificado — João" },
+                        { time: "11:02", event: "Permissão atualizada por Maria" },
+                      ].map((item) => (
+                        <div
+                          key={item.time + item.event}
+                          className="text-muted-foreground flex items-center gap-2"
+                        >
+                          <span className="w-10 shrink-0 text-right font-mono text-[10px]">
+                            {item.time}
+                          </span>
+                          <span>{item.event}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Mock: controle de acesso */}
+            <div className="relative overflow-hidden rounded-2xl">
+              <div className="from-background pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-5% to-transparent to-40%" />
+              <div className="border-border bg-surface-1 rounded-2xl border p-5">
+                <div className="flex flex-col gap-3 text-xs">
+                  <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                    Permissões
+                  </span>
+                  {[
+                    {
+                      role: "Admin",
+                      perms: [
+                        "Configurar agentes",
+                        "Gerenciar equipe",
+                        "Ver métricas",
+                        "Alterar plano",
+                      ],
+                      accent: true,
+                    },
+                    {
+                      role: "Supervisor",
+                      perms: ["Configurar agentes", "Monitorar ao vivo", "Ver métricas"],
+                      accent: false,
+                    },
+                    {
+                      role: "Operador",
+                      perms: ["Monitorar ao vivo", "Assumir conversas"],
+                      accent: false,
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.role}
+                      className="border-border bg-surface-2 flex flex-col gap-2 rounded-lg border px-3 py-2.5"
+                    >
+                      <span
+                        className={`font-semibold ${item.accent ? "text-accent-light" : "text-foreground"}`}
+                      >
+                        {item.role}
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {item.perms.map((p) => (
+                          <span
+                            key={p}
+                            className="bg-surface-3 text-muted-foreground rounded-md px-2 py-0.5 text-[10px]"
+                          >
+                            {p}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="border-border mt-2 border-t pt-3">
+                    <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                      Sessões ativas
+                    </span>
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {[
+                        { user: "Maria (Admin)", device: "Chrome · São Paulo", time: "Agora" },
+                        { user: "João (Operador)", device: "Firefox · Campinas", time: "3 min" },
+                      ].map((s) => (
+                        <div
+                          key={s.user}
+                          className="text-muted-foreground flex items-center justify-between"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="bg-success size-1.5 rounded-md" />
+                            {s.user}
+                          </span>
+                          <span className="text-[10px]">
+                            {s.device} · {s.time}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-function SectionHead({
-  eyebrow,
-  title,
-  lead,
-  align = "center",
-}: {
-  eyebrow: string;
-  title: string;
-  lead: string;
-  align?: "center" | "left";
-}) {
-  const alignment = align === "center" ? "text-center items-center" : "text-left items-start";
-  return (
-    <div className={`mx-auto flex max-w-2xl flex-col gap-4 ${alignment}`}>
-      <span className="text-accent-light text-xs font-semibold tracking-[0.2em] uppercase">
-        {eyebrow}
-      </span>
-      <h2 className="font-display text-3xl leading-tight font-bold tracking-tight md:text-4xl lg:text-5xl">
-        {title}
-      </h2>
-      <p className="text-muted-foreground text-base leading-relaxed md:text-lg">{lead}</p>
-    </div>
-  );
-}
+        {/* PASSOS */}
+        <section className="border-border border-t py-20 md:py-28">
+          <div className="mx-auto mb-14 flex max-w-2xl flex-col items-center gap-4 text-center">
+            <h2 className="font-display text-2xl font-bold tracking-tight md:text-3xl lg:text-4xl">
+              Comece em minutos. Sem burocracia.
+            </h2>
+          </div>
 
-function ChannelBadge({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <span className="text-foreground inline-flex items-center gap-2">
-      <span className="text-accent-light">{icon}</span>
-      {label}
-    </span>
-  );
-}
+          <div className="relative grid gap-10 md:grid-cols-3 md:gap-0">
+            {/* Linha conectora (desktop) */}
+            <div className="border-border absolute top-6 right-[16.7%] left-[16.7%] hidden border-t border-dashed md:block" />
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <article className="border-glass-border bg-glass-bg rounded-lg border p-6 backdrop-blur">
-      <div className="bg-primary/10 text-accent-light mb-4 flex size-10 items-center justify-center rounded-md">
-        {icon}
-      </div>
-      <h3 className="font-display text-foreground mb-2 text-lg font-semibold">{title}</h3>
-      <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
-    </article>
-  );
-}
-
-function StepCard({
-  index,
-  icon,
-  title,
-  description,
-}: {
-  index: string;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <article className="border-glass-border bg-glass-bg flex flex-col gap-4 rounded-lg border p-6 backdrop-blur">
-      <div className="flex items-center justify-between">
-        <span className="text-accent-light font-display text-sm font-semibold tracking-wider">
-          {index}
-        </span>
-        <span className="bg-primary/10 text-accent-light flex size-9 items-center justify-center rounded-md">
-          {icon}
-        </span>
-      </div>
-      <div>
-        <h3 className="font-display text-foreground mb-2 text-base font-semibold">{title}</h3>
-        <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
-      </div>
-    </article>
-  );
-}
-
-function BulletItem({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <li className="flex gap-3">
-      <span className="bg-primary/10 text-accent-light mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md">
-        {icon}
-      </span>
-      <div>
-        <p className="text-foreground text-sm font-semibold">{title}</p>
-        <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
-      </div>
-    </li>
-  );
-}
-
-function BigFeatureCard({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <article className="border-glass-border bg-glass-bg flex flex-col gap-5 rounded-lg border p-6 backdrop-blur">
-      <div className="bg-primary/10 text-accent-light flex size-10 items-center justify-center rounded-md">
-        {icon}
-      </div>
-      <div>
-        <h3 className="font-display text-foreground mb-2 text-lg font-semibold">{title}</h3>
-        <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
-      </div>
-      <div className="border-divider mt-auto border-t pt-5">{children}</div>
-    </article>
-  );
-}
-
-function VerticalGrid() {
-  const items = [
-    { icon: <Briefcase className="size-3.5" />, label: "Comercial B2B" },
-    { icon: <Wrench className="size-3.5" />, label: "Suporte" },
-    { icon: <HeartHandshake className="size-3.5" />, label: "Recepção" },
-    { icon: <ShoppingBag className="size-3.5" />, label: "Varejo" },
-    { icon: <Wallet className="size-3.5" />, label: "Cobrança" },
-    { icon: <GraduationCap className="size-3.5" />, label: "Educação" },
-  ];
-  return (
-    <ul className="grid grid-cols-2 gap-2">
-      {items.map((it) => (
-        <li
-          key={it.label}
-          className="border-glass-border text-muted-foreground flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
-        >
-          <span className="text-accent-light">{it.icon}</span>
-          {it.label}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function PersonaPills() {
-  const tags = ["Empática", "Objetiva", "Paciente", "Confiante", "Acolhedora", "Técnica"];
-  return (
-    <div className="flex flex-wrap gap-2">
-      {tags.map((t) => (
-        <span
-          key={t}
-          className="border-glass-border text-muted-foreground rounded-md border px-2.5 py-1 text-xs"
-        >
-          {t}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function KnowledgeChips() {
-  const items = ["PDF", "DOCX", "XLSX", "URL", "GDrive", "Notion"];
-  return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((t) => (
-        <span
-          key={t}
-          className="border-glass-border text-muted-foreground rounded-md border px-2.5 py-1 text-xs font-medium"
-        >
-          {t}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function HeroVisual() {
-  return (
-    <div aria-hidden className="relative hidden lg:block">
-      <div className="pointer-events-none absolute -inset-4 [background:radial-gradient(ellipse_at_center,var(--accent-glow),transparent_70%)]" />
-      <div className="border-glass-border bg-glass-bg shadow-modal relative rounded-2xl border p-5 backdrop-blur">
-        <div className="border-divider flex items-center gap-2 border-b pb-3">
-          <span className="bg-divider-strong size-2.5 rounded-md" />
-          <span className="bg-divider-strong size-2.5 rounded-md" />
-          <span className="bg-divider-strong size-2.5 rounded-md" />
-          <span className="text-muted-foreground ml-3 text-xs">Conversations</span>
-        </div>
-        <div className="mt-4 grid grid-cols-[140px_1fr] gap-4">
-          <ul className="flex flex-col gap-2 text-xs">
             {[
-              { label: "Comercial", count: 3, active: true },
-              { label: "Suporte", count: 7 },
-              { label: "Financeiro", count: 1 },
-              { label: "Recepção", count: 2 },
-            ].map((d) => (
-              <li
-                key={d.label}
-                className={
-                  d.active
-                    ? "border-accent-light/40 bg-primary/10 text-foreground flex items-center justify-between rounded-md border px-2.5 py-1.5"
-                    : "border-glass-border text-muted-foreground flex items-center justify-between rounded-md border px-2.5 py-1.5"
-                }
+              {
+                index: "1",
+                title: "Crie sua conta",
+                description: "Nome, empresa e email. Sem cartão de crédito, sem compromisso.",
+              },
+              {
+                index: "2",
+                title: "Configure seu primeiro agente",
+                description:
+                  "Escolha a vertical, defina o tom e publique. Leva minutos, não semanas.",
+              },
+              {
+                index: "3",
+                title: "Comece a atender",
+                description:
+                  "Seu agente está no ar. Conecte seus canais e seus clientes são atendidos a partir de agora.",
+              },
+            ].map((step) => (
+              <div
+                key={step.index}
+                className="relative flex flex-col items-center gap-4 text-center md:px-8"
               >
-                <span>{d.label}</span>
-                <span>{d.count}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-col gap-3">
-            {[
-              { who: "Cliente", w: "70%" },
-              { who: "Helena", w: "85%", agent: true },
-              { who: "Cliente", w: "55%" },
-              { who: "Helena", w: "75%", agent: true },
-            ].map((m, i) => (
-              <div key={i} className="flex flex-col gap-1">
-                <span
-                  className={
-                    m.agent
-                      ? "text-accent-light text-[10px] font-semibold"
-                      : "text-muted-foreground text-[10px]"
-                  }
-                >
-                  {m.who}
+                <span className="bg-background border-border text-accent-light font-display relative z-10 flex size-12 items-center justify-center rounded-lg border text-xl font-bold">
+                  {step.index}
                 </span>
-                <span
-                  className={
-                    m.agent
-                      ? "bg-primary/15 h-2 rounded-md"
-                      : "bg-glass-bg border-glass-border h-2 rounded-md border"
-                  }
-                  style={{ width: m.w }}
-                />
-                <span
-                  className={
-                    m.agent
-                      ? "bg-primary/10 h-2 rounded-md"
-                      : "bg-glass-bg border-glass-border h-2 rounded-md border"
-                  }
-                  style={{ width: `calc(${m.w} - 12%)` }}
-                />
+                <h3 className="font-display text-foreground text-base font-semibold">
+                  {step.title}
+                </h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{step.description}</p>
               </div>
             ))}
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+        </section>
 
-function ConversationMock() {
-  return (
-    <div aria-hidden className="relative">
-      <div className="border-glass-border bg-glass-bg shadow-modal relative rounded-2xl border p-5 backdrop-blur">
-        <div className="border-divider mb-4 flex items-center justify-between border-b pb-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="bg-primary/10 text-accent-light flex size-7 items-center justify-center rounded-md">
-              <Mic className="size-3.5" />
-            </span>
-            <div className="flex flex-col leading-tight">
-              <span className="text-foreground font-semibold">Helena · Comercial</span>
-              <span className="text-muted-foreground">Voz · 02:14</span>
+        {/* CTA FINAL */}
+        <section className="border-border border-t py-20 md:py-28">
+          <div className="flex flex-col items-center gap-8 text-center">
+            <h2 className="font-display text-2xl leading-[1.15] font-bold tracking-tight text-balance md:text-3xl lg:text-5xl">
+              Quantos clientes você perdeu até chegar aqui?
+            </h2>
+            <p className="text-muted-foreground text-base leading-relaxed md:text-lg">
+              Com{" "}
+              <span className="text-foreground font-semibold">
+                telefon
+                <span className="bg-gradient-to-r from-[var(--brand-gradient-from)] to-[var(--brand-gradient-to)] bg-clip-text text-transparent">
+                  .ia
+                </span>
+              </span>
+              , nenhum contato fica sem resposta.
+            </p>
+            <Button asChild size="lg" className="px-8">
+              <Link href="/signup">
+                Criar conta grátis
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </div>
+        </section>
+      </main>
+
+      {/* FOOTER */}
+      <footer className="border-border text-muted-foreground border-t text-sm">
+        <div className="mx-auto max-w-[1240px] px-4 md:px-6 lg:px-8">
+          <div className="grid gap-10 py-14 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
+            {/* Brand (desktop only — mobile version below copyright) */}
+            <div className="hidden flex-col gap-6 md:flex">
+              <div className="flex items-center gap-3">
+                <Image src="/brand/logo.webp" alt="" width={56} height={56} />
+                <span className="font-display text-foreground text-2xl font-bold tracking-tight md:text-3xl">
+                  Pek
+                  <span className="bg-gradient-to-r from-[var(--brand-gradient-alt-from)] via-[var(--brand-gradient-alt-via)] to-[var(--brand-gradient-alt-to)] bg-clip-text text-transparent">
+                    ia
+                  </span>
+                  rt
+                </span>
+              </div>
+              <span>Visão estratégica. Execução precisa.</span>
+            </div>
+
+            {/* Produto */}
+            <div className="flex flex-col gap-3">
+              <span className="text-foreground text-xs font-semibold tracking-wider uppercase">
+                Produto
+              </span>
+              <a href="#" className="hover:text-foreground transition-colors">
+                Funcionalidades
+              </a>
+            </div>
+
+            {/* Suporte */}
+            <div className="flex flex-col gap-3">
+              <span className="text-foreground text-xs font-semibold tracking-wider uppercase">
+                Suporte
+              </span>
+              <a
+                href="mailto:contato@pekiart.com.br"
+                className="hover:text-foreground transition-colors"
+              >
+                Contato
+              </a>
+              <a
+                href="https://wa.me/5511922060089"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground transition-colors"
+              >
+                WhatsApp
+              </a>
+            </div>
+
+            {/* Legal */}
+            <div className="flex flex-col gap-3">
+              <span className="text-foreground text-xs font-semibold tracking-wider uppercase">
+                Legal
+              </span>
+              <a href="#" className="hover:text-foreground transition-colors">
+                Política de Privacidade
+              </a>
+              <a href="#" className="hover:text-foreground transition-colors">
+                Termos de Uso
+              </a>
             </div>
           </div>
-          <span className="border-glass-border text-muted-foreground rounded-md border px-2 py-0.5 text-[10px] uppercase">
-            Em curso
-          </span>
-        </div>
 
-        <div className="flex flex-col gap-3 text-sm">
-          <Bubble who="Cliente">olá, vocês têm tinta acrílica em 18 litros?</Bubble>
-          <Bubble who="Helena" agent>
-            temos sim! tinta acrílica fosco premium, 18L, em quatro cores. quer que eu já envie a
-            referência por WhatsApp?
-          </Bubble>
-          <Bubble who="Cliente">pode mandar pelo whats, mesmo número</Bubble>
-          <div className="border-glass-border bg-glass-bg text-muted-foreground flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
-            <Sparkles className="text-accent-light size-3.5" />
-            tool: <span className="text-foreground">enviar_email + transferir_canal</span>
+          <div className="border-border border-t py-8 text-center text-xs">
+            {/* Brand (mobile only — above copyright) */}
+            <div className="mb-6 flex flex-col items-center gap-3 md:hidden">
+              <div className="flex items-center gap-3">
+                <Image src="/brand/logo.webp" alt="" width={40} height={40} />
+                <span className="font-display text-foreground text-2xl font-bold tracking-tight">
+                  Pek
+                  <span className="bg-gradient-to-r from-[var(--brand-gradient-alt-from)] via-[var(--brand-gradient-alt-via)] to-[var(--brand-gradient-alt-to)] bg-clip-text text-transparent">
+                    ia
+                  </span>
+                  rt
+                </span>
+              </div>
+              <span className="text-muted-foreground text-xs">
+                Visão estratégica. Execução precisa.
+              </span>
+            </div>
+            © {new Date().getFullYear()} Pekiart Consulting. Todos os direitos reservados.
           </div>
         </div>
-      </div>
+      </footer>
     </div>
-  );
-}
-
-function Bubble({
-  who,
-  agent,
-  children,
-}: {
-  who: string;
-  agent?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={agent ? "flex flex-col items-end gap-1" : "flex flex-col items-start gap-1"}>
-      <span
-        className={
-          agent
-            ? "text-accent-light text-[10px] font-semibold tracking-wide uppercase"
-            : "text-muted-foreground text-[10px] tracking-wide uppercase"
-        }
-      >
-        {who}
-      </span>
-      <span
-        className={
-          agent
-            ? "bg-primary/15 text-foreground max-w-[85%] rounded-md px-3 py-2 leading-snug"
-            : "border-glass-border bg-glass-bg text-foreground max-w-[85%] rounded-md border px-3 py-2 leading-snug"
-        }
-      >
-        {children}
-      </span>
-    </div>
-  );
-}
-
-function InterventionMock() {
-  return (
-    <div aria-hidden className="relative">
-      <div className="border-glass-border bg-glass-bg shadow-modal relative rounded-2xl border p-5 backdrop-blur">
-        <div className="border-divider mb-4 flex items-center gap-3 border-b pb-3">
-          <span className="bg-primary/10 text-accent-light flex size-9 items-center justify-center rounded-md">
-            <UserCog className="size-4" />
-          </span>
-          <div className="flex flex-col leading-tight">
-            <span className="text-foreground text-sm font-semibold">Operador entrou</span>
-            <span className="text-muted-foreground text-xs">Maria · supervisora · Comercial</span>
-          </div>
-          <span className="border-accent-light/40 bg-primary/10 text-accent-light ml-auto rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase">
-            Ao vivo
-          </span>
-        </div>
-
-        <ul className="grid gap-3 text-sm">
-          <TimelineItem label="Modo" value="observando" tone="muted" />
-          <TimelineItem label="Sussurro" value="lembre do desconto progressivo" tone="accent" />
-          <TimelineItem label="Modo" value="assistindo" tone="muted" />
-          <TimelineItem label="Modo" value="takeover" tone="accent" />
-          <TimelineItem label="Audit" value="registrado · hash chain ok" tone="muted" />
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function TimelineItem({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "muted" | "accent";
-}) {
-  return (
-    <li className="border-divider flex items-center justify-between gap-4 border-b pb-3 last:border-b-0 last:pb-0">
-      <span className="text-muted-foreground text-xs tracking-wide uppercase">{label}</span>
-      <span
-        className={
-          tone === "accent"
-            ? "text-accent-light font-mono text-xs"
-            : "text-foreground font-mono text-xs"
-        }
-      >
-        {value}
-      </span>
-    </li>
   );
 }

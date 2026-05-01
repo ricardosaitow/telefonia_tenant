@@ -18,7 +18,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Portal — telefonia.ia",
+  title: "Pekiart telefon.ia",
   description: "Plano de controle multi-tenant da plataforma telefonia.ia.",
   icons: {
     icon: "/favicon.ico",

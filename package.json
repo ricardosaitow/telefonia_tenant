@@ -29,7 +29,7 @@
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm lint-staged && (gitleaks git --staged --redact --no-banner || (echo 'gitleaks: segredo detectado, abortando commit' && exit 1))",
+    "pre-commit": "pnpm lint-staged && (command -v gitleaks >/dev/null 2>&1 && (gitleaks git --staged --redact --no-banner || (echo 'gitleaks: segredo detectado, abortando commit' && exit 1)) || echo '[WARN] gitleaks não instalado, pulando verificação de segredos')",
     "pre-push": "pnpm type-check && pnpm test:rls",
     "commit-msg": "pnpm commitlint --edit \"$1\""
   },

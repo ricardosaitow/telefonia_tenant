@@ -7,9 +7,9 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Select — Radix por baixo, refatorado pra tokens Pekiart.
- * - Trigger: glass + focus glow (match Input).
- * - Content: glass-panel + radius-lg + shadow-modal (match popover).
+ * Select — Radix por baixo, refatorado pra tokens semânticos.
+ * - Trigger: focus ring (match Input, P005).
+ * - Content: solid bg + radius-lg + shadow-modal (match popover).
  */
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
@@ -44,7 +44,7 @@ function SelectTrigger({
       data-size={size}
       className={cn(
         "border-glass-border bg-input text-foreground flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-[border-color,box-shadow] outline-none select-none",
-        "focus-visible:border-accent-light focus-visible:shadow-glow focus-visible:ring-0",
+        "focus-visible:border-ring focus-visible:ring-ring/20 focus-visible:ring-1",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "aria-invalid:border-destructive",
         "data-placeholder:text-muted-foreground",

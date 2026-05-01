@@ -4,15 +4,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Card — Pekiart-vibe.
- * - solid (default): bg-card opaco, border sutil. Pra dashboards densos.
- * - glass: backdrop-filter + transparência. Pra auth pages, modais flutuantes.
+ * Card — Linear pure (P005).
+ * - solid (default): bg-card opaco, hairline border. Pra dashboards densos.
+ * - glass: bg-surface-2 sólido + border (sem backdrop-blur). Pra auth, modais.
  */
 const cardVariants = cva("flex flex-col gap-4 overflow-hidden rounded-[var(--radius-lg)] text-sm", {
   variants: {
     variant: {
       solid: "bg-card text-card-foreground border border-divider-strong",
-      glass: "glass-panel text-card-foreground shadow-modal",
+      glass: "bg-surface-2 border border-border text-card-foreground",
     },
     padding: {
       none: "",

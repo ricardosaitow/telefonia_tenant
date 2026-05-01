@@ -32,7 +32,7 @@ export function LoginForm({ signupSuccess }: LoginFormProps) {
     <form {...getFormProps(form)} action={action} className="flex flex-col gap-4">
       {signupSuccess ? (
         <Alert>
-          <AlertDescription>Cadastro realizado. Faça login pra continuar.</AlertDescription>
+          <AlertDescription>Conta criada. Faça login pra continuar.</AlertDescription>
         </Alert>
       ) : null}
 
@@ -42,42 +42,47 @@ export function LoginForm({ signupSuccess }: LoginFormProps) {
         </Alert>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.email.id}>Email</Label>
-        <Input
-          {...getInputProps(fields.email, { type: "email" })}
-          key={fields.email.key}
-          autoComplete="email"
-          required
-        />
-        {fields.email.errors?.length ? (
-          <p className="text-destructive text-sm">{fields.email.errors.join(" ")}</p>
-        ) : null}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={fields.email.id}>Email</Label>
+          <Input
+            {...getInputProps(fields.email, { type: "email" })}
+            key={fields.email.key}
+            placeholder="você@empresa.com"
+            autoComplete="email"
+            required
+          />
+          {fields.email.errors?.length ? (
+            <p className="text-destructive text-sm">{fields.email.errors.join(" ")}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={fields.password.id}>Senha</Label>
+          <Input
+            {...getInputProps(fields.password, { type: "password" })}
+            key={fields.password.key}
+            autoComplete="current-password"
+            required
+          />
+          {fields.password.errors?.length ? (
+            <p className="text-destructive text-sm">{fields.password.errors.join(" ")}</p>
+          ) : null}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.password.id}>Senha</Label>
-        <Input
-          {...getInputProps(fields.password, { type: "password" })}
-          key={fields.password.key}
-          autoComplete="current-password"
-          required
-        />
-        {fields.password.errors?.length ? (
-          <p className="text-destructive text-sm">{fields.password.errors.join(" ")}</p>
-        ) : null}
-      </div>
-
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Entrando..." : "Entrar"}
       </Button>
 
-      <p className="text-muted-foreground text-center text-sm">
-        Não tem conta?{" "}
-        <Link href="/signup" className="text-primary underline-offset-4 hover:underline">
-          Cadastre-se
-        </Link>
-      </p>
+      <div className="border-border border-t pt-4">
+        <p className="text-muted-foreground text-center text-sm">
+          Ainda não tem conta?{" "}
+          <Link href="/signup" className="text-accent-light hover:underline">
+            Criar conta
+          </Link>
+        </p>
+      </div>
     </form>
   );
 }

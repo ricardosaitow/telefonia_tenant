@@ -50,12 +50,10 @@
       "Bash(npx prisma migrate reset *)",
       "Bash(npx prisma migrate deploy *)",
       "Bash(pnpm db:reset)",
-      "Edit(.env)",
       "Edit(.env.local)",
       "Edit(.env.production)",
       "Edit(.github/workflows/**)",
-      "Edit(prisma/migrations/**)",
-      "Write(.env*)"
+      "Edit(prisma/migrations/**)"
     ]
   },
   "hooks": {

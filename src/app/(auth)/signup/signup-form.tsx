@@ -9,16 +9,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { signupSchema } from "@/features/auth/schemas";
 import { signupFormAction } from "@/features/auth/signup-form-action";
-import { LOCALE_LABEL, LOCALE_VALUES } from "@/features/tenant-settings/schemas";
 
 export function SignupForm() {
   const [lastResult, action, pending] = useActionState(signupFormAction, undefined);
@@ -40,91 +32,80 @@ export function SignupForm() {
         </Alert>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.nome.id}>Seu nome</Label>
-        <Input
-          {...getInputProps(fields.nome, { type: "text" })}
-          key={fields.nome.key}
-          autoComplete="name"
-          required
-        />
-        {fields.nome.errors?.length ? (
-          <p className="text-destructive text-sm">{fields.nome.errors.join(" ")}</p>
-        ) : null}
+      <input type="hidden" name="locale" value="pt-BR" />
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={fields.nome.id}>Nome</Label>
+          <Input
+            {...getInputProps(fields.nome, { type: "text" })}
+            key={fields.nome.key}
+            placeholder="Seu nome completo"
+            autoComplete="name"
+            required
+          />
+          {fields.nome.errors?.length ? (
+            <p className="text-destructive text-sm">{fields.nome.errors.join(" ")}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={fields.nomeTenant.id}>Empresa</Label>
+          <Input
+            {...getInputProps(fields.nomeTenant, { type: "text" })}
+            key={fields.nomeTenant.key}
+            placeholder="Nome da empresa"
+            autoComplete="organization"
+            required
+          />
+          <p className="text-muted-foreground text-xs">Cria seu primeiro workspace.</p>
+          {fields.nomeTenant.errors?.length ? (
+            <p className="text-destructive text-sm">{fields.nomeTenant.errors.join(" ")}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={fields.email.id}>Email</Label>
+          <Input
+            {...getInputProps(fields.email, { type: "email" })}
+            key={fields.email.key}
+            placeholder="você@empresa.com"
+            autoComplete="email"
+            required
+          />
+          {fields.email.errors?.length ? (
+            <p className="text-destructive text-sm">{fields.email.errors.join(" ")}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={fields.password.id}>Senha</Label>
+          <Input
+            {...getInputProps(fields.password, { type: "password" })}
+            key={fields.password.key}
+            autoComplete="new-password"
+            required
+            minLength={12}
+          />
+          <p className="text-muted-foreground text-xs">Mínimo 12 caracteres.</p>
+          {fields.password.errors?.length ? (
+            <p className="text-destructive text-sm">{fields.password.errors.join(" ")}</p>
+          ) : null}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.nomeTenant.id}>Nome da empresa</Label>
-        <Input
-          {...getInputProps(fields.nomeTenant, { type: "text" })}
-          key={fields.nomeTenant.key}
-          autoComplete="organization"
-          required
-        />
-        <p className="text-muted-foreground text-xs">
-          Vira o tenant inicial e você fica como owner. Pode trocar depois.
-        </p>
-        {fields.nomeTenant.errors?.length ? (
-          <p className="text-destructive text-sm">{fields.nomeTenant.errors.join(" ")}</p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.email.id}>Email</Label>
-        <Input
-          {...getInputProps(fields.email, { type: "email" })}
-          key={fields.email.key}
-          autoComplete="email"
-          required
-        />
-        {fields.email.errors?.length ? (
-          <p className="text-destructive text-sm">{fields.email.errors.join(" ")}</p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.password.id}>Senha</Label>
-        <Input
-          {...getInputProps(fields.password, { type: "password" })}
-          key={fields.password.key}
-          autoComplete="new-password"
-          required
-          minLength={12}
-        />
-        <p className="text-muted-foreground text-xs">
-          Mínimo 12 caracteres. Sem regra de classes (NIST 800-63B).
-        </p>
-        {fields.password.errors?.length ? (
-          <p className="text-destructive text-sm">{fields.password.errors.join(" ")}</p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={fields.locale.id}>Idioma</Label>
-        <Select name={fields.locale.name} defaultValue="pt-BR">
-          <SelectTrigger id={fields.locale.id}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {LOCALE_VALUES.map((l) => (
-              <SelectItem key={l} value={l}>
-                {LOCALE_LABEL[l]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Criando..." : "Criar conta"}
       </Button>
 
-      <p className="text-muted-foreground text-center text-sm">
-        Já tem conta?{" "}
-        <Link href="/login" className="text-primary underline-offset-4 hover:underline">
-          Entrar
-        </Link>
-      </p>
+      <div className="border-border border-t pt-4">
+        <p className="text-muted-foreground text-center text-sm">
+          Já tem conta?{" "}
+          <Link href="/login" className="text-accent-light hover:underline">
+            Entrar
+          </Link>
+        </p>
+      </div>
     </form>
   );
 }

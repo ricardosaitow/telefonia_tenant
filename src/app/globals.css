@@ -2,8 +2,9 @@
 @import "tw-animate-css";
 
 /* =============================================================================
-   Pekiart Design System — design tokens (Tailwind 4 @theme + dual-theme).
-   Canônico: docs/design.md, .claude/rules/design-portal.md, ADR P003.
+   Pekiart Design System — Linear Pure aesthetic (P005).
+   Tokens semânticos (Tailwind 4 @theme + dual-theme).
+   Canônico: docs/design.md, .claude/rules/design-portal.md, ADR P003 + P005.
 
    REGRA DURA: nada de cor numerada (bg-zinc-900, text-blue-500) em
    src/features/** ou src/app/**. Tudo via tokens semânticos abaixo.
@@ -18,7 +19,7 @@
   --font-display: var(--font-jakarta), var(--font-inter), system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
 
-  /* Cores semânticas (mapeadas pra tokens Pekiart abaixo). */
+  /* Cores semânticas (mapeadas pra tokens abaixo). */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -41,7 +42,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Pekiart-específicos (glass, glow). */
+  /* Pekiart-específicos (glass tokens mantidos pra compat, glow zerado P005). */
   --color-glass-bg: var(--glass-bg);
   --color-glass-border: var(--glass-border);
   --color-divider: var(--divider);
@@ -49,20 +50,26 @@
   --color-accent-light: var(--accent-light);
   --color-accent-purple: var(--accent-purple);
 
+  /* Surface ladder (P005) — hierarquia de camadas sólidas. */
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-hero: var(--surface-hero);
+
   /* Spacing scale: 2,4,6,8,12,16,24,32,48,64 px (mantém escala Tailwind padrão).
      Densidade alta — reservar p-1/p-1.5 pra ações compactas. */
 
-  /* Radius — Pekiart é mais glass que Linear, então radius médio. */
+  /* Radius — rounded, sem pill (P004). */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
   --radius-2xl: 24px;
 
-  /* Sombras — discretas, exceto botões primários que ganham glow. */
-  --shadow-glow: 0 0 24px var(--accent-glow);
-  --shadow-glow-lg: 0 0 36px var(--accent-glow);
-  --shadow-card: 0 1px 0 var(--divider), 0 0 0 1px var(--divider-strong);
+  /* Sombras — Linear pure: sem glow (P005). */
+  --shadow-glow: none;
+  --shadow-glow-lg: none;
+  --shadow-card: 0 0 0 1px var(--divider-strong);
   --shadow-modal: 0 30px 80px rgba(0, 0, 0, 0.6);
 }
 
@@ -73,17 +80,23 @@
    sempre vencer e o toggle não funciona.
 ============================================================================= */
 :root {
-  /* Backgrounds (light) */
-  --bg-primary: #fafbff;
-  --bg-secondary: #f1f3fa;
+  /* Backgrounds (light) — sem tint azul (P005) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f6f8;
   --bg-card-solid: #ffffff;
+
+  /* Surface ladder (light) */
+  --surface-1: #f5f6f8;
+  --surface-2: #edeef1;
+  --surface-3: #e5e6ea;
+  --surface-hero: #d8d9de;
 
   /* Texto (light) */
   --text-primary: #0a0f1a;
   --text-secondary: #475569;
   --text-muted: #64748b;
 
-  /* Glass + dividers (invertidos) */
+  /* Glass + dividers (mantidos pra compat — valores puros sem tint) */
   --glass-bg: rgba(10, 15, 26, 0.02);
   --glass-border: rgba(10, 15, 26, 0.08);
   --divider: rgba(10, 15, 26, 0.06);
@@ -93,7 +106,14 @@
   --accent-color-base: #6366f1;
   --accent-light: #818cf8;
   --accent-purple: #8b5cf6;
-  --accent-glow: rgba(99, 102, 241, 0.12);
+  --accent-glow: rgba(99, 102, 241, 0);
+
+  /* Brand gradient stops (logo telefon.ia + Pekiart) */
+  --brand-gradient-from: #818cf8;
+  --brand-gradient-to: #a78bfa;
+  --brand-gradient-alt-from: #a5b4fc;
+  --brand-gradient-alt-via: #a78bfa;
+  --brand-gradient-alt-to: #a855f7;
 
   /* Mapeamento → tokens shadcn */
   --background: var(--bg-primary);
@@ -112,9 +132,6 @@
   --accent-foreground: var(--text-primary);
   --destructive: oklch(0.55 0.22 27);
   --destructive-foreground: #ffffff;
-  /* Sucesso (steps completos, validação OK). Verde nítido (hue 145 = pure
-     green; chroma 0.20 = saturado). Light theme usa tom escuro pra contrastar
-     com bg branco; foreground=branco caso usar bg-success solid. */
   --success: oklch(0.55 0.2 145);
   --success-foreground: #ffffff;
   --border: var(--glass-border);
@@ -127,14 +144,20 @@
    Precisa estar APÓS `:root` por causa de specificity igual (ver acima).
 ============================================================================= */
 .dark {
-  /* Backgrounds Pekiart */
-  --bg-primary: #050810;
-  --bg-secondary: #0a0f1a;
-  --bg-card-solid: #0d1221;
+  /* Backgrounds — neutros profundos sem tint azul (P005) */
+  --bg-primary: #010102;
+  --bg-secondary: #0f1011;
+  --bg-card-solid: #141516;
 
-  /* Texto Pekiart */
-  --text-primary: #f0f4ff;
-  --text-secondary: #94a3b8;
+  /* Surface ladder (dark) */
+  --surface-1: #0f1011;
+  --surface-2: #141516;
+  --surface-3: #1a1b1e;
+  --surface-hero: #2a2c32;
+
+  /* Texto — neutro sem tint azul (P005) */
+  --text-primary: #e8e8e8;
+  --text-secondary: #8a8f98;
   --text-muted: #64748b;
 
   /* Glass + dividers */
@@ -143,8 +166,8 @@
   --divider: rgba(255, 255, 255, 0.06);
   --divider-strong: rgba(255, 255, 255, 0.1);
 
-  /* Acento (mesmo das vars de marca acima — só override do glow) */
-  --accent-glow: rgba(99, 102, 241, 0.18);
+  /* Acento — glow zerado (P005) */
+  --accent-glow: rgba(99, 102, 241, 0);
 
   /* Mapeamento → tokens shadcn-style usados pelos primitivos */
   --background: var(--bg-primary);
@@ -155,17 +178,14 @@
   --popover-foreground: var(--text-primary);
   --primary: var(--accent-color-base);
   --primary-foreground: #ffffff;
-  --secondary: var(--glass-bg);
+  --secondary: var(--surface-1);
   --secondary-foreground: var(--text-primary);
   --muted: var(--bg-secondary);
   --muted-foreground: var(--text-muted);
-  --accent: var(--glass-bg);
+  --accent: var(--surface-1);
   --accent-foreground: var(--text-primary);
   --destructive: oklch(0.65 0.22 25);
   --destructive-foreground: #ffffff;
-  /* Sucesso no dark — verde luminoso (lightness 0.78 + chroma 0.2) pra
-     "pop" sobre bg escuro. Foreground branco escuro pra usar caso
-     bg-success solid (raro — geralmente usamos só text-success no check). */
   --success: oklch(0.78 0.2 145);
   --success-foreground: #050810;
   --border: var(--glass-border);
@@ -189,7 +209,7 @@
     background-color: var(--background);
     color: var(--foreground);
   }
-  /* Headings: Plus Jakarta Sans com letter-spacing negativo (Pekiart-vibe). */
+  /* Headings: Plus Jakarta Sans com letter-spacing negativo apertado (P005). */
   h1,
   h2,
   h3,
@@ -197,19 +217,17 @@
   h5,
   h6 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
     color: var(--foreground);
   }
 }
 
 /* =============================================================================
-   Helpers Pekiart (glass, gradient bg). Usar via @apply ou class direto.
+   Helpers (P005: glass-panel sem blur, radial-bg desativado).
 ============================================================================= */
 @utility glass-panel {
-  background: var(--glass-bg);
+  background: var(--surface-2);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 @utility pekiart-radial-bg {
@@ -217,13 +235,5 @@
   overflow: hidden;
 }
 @utility pekiart-radial-bg-layer {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 20% 20%, var(--accent-glow), transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.08), transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(99, 102, 241, 0.04), transparent 70%);
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }

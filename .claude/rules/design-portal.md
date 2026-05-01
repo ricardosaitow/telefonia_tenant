@@ -2,12 +2,12 @@
 
 **Escopo:** `src/**`, `tailwind` config, CSS global.
 
-Documento canônico de design: `docs/design.md`. ADR ancorada: P003. Estas regras são o resumo operacional de proibições e enforcement diário.
+Documento canônico de design: `docs/design.md`. ADRs ancoradas: P003, P005. Estas regras são o resumo operacional de proibições e enforcement diário.
 
 ## Tokens semânticos
 
 - **Proibido** usar cor numerada em `src/features/**` e `src/app/**`: `bg-zinc-900`, `text-blue-500`, `border-red-300`, `ring-purple-400`, etc. Ferramenta: ESLint rule custom (`eslint.config.mjs`).
-- **Permitido** usar tokens semânticos: `bg-background`, `bg-card`, `bg-primary`, `bg-glass-bg`, `text-foreground`, `text-muted-foreground`, `text-accent-light`, `border-border`, `border-glass-border`, `border-divider-strong`, `ring-ring`, `shadow-glow`, etc. Lista completa: `docs/design.md` §4-6.
+- **Permitido** usar tokens semânticos: `bg-background`, `bg-card`, `bg-primary`, `bg-surface-1`, `bg-surface-2`, `bg-surface-3`, `bg-glass-bg`, `text-foreground`, `text-muted-foreground`, `text-accent-light`, `border-border`, `border-glass-border`, `border-divider-strong`, `ring-ring`, etc. Lista completa: `docs/design.md` §4-6.
 - Componentes em `src/components/ui/**` PODEM usar cor literal só no caso de estados muito específicos do primitivo (ex.: `border-l-destructive`); preferir token sempre que possível.
 - Tipografia: usar `font-sans` (Inter, body) ou `font-display` (Plus Jakarta, headings/buttons). **Proibido** carregar outras fontes ad-hoc em features.
 
@@ -29,7 +29,7 @@ Documento canônico de design: `docs/design.md`. ADR ancorada: P003. Estas regra
 ## Layout shell
 
 - Layout shell pós-login (sidebar + topbar) é **fixo** (`docs/design.md` §8.2). Feature renderiza dentro do shell, não cria shell próprio.
-- Shell de auth (`(auth)/layout.tsx`) é **fixo**: dark deep + radial gradient + logo central + card glass.
+- Shell de auth (`(auth)/layout.tsx`) é **fixo**: dark canvas puro + logo central + card solid (P005).
 - **Proibido** feature inserir `<header>`, `<aside>`, ou wrappers que conflitem com o shell.
 
 ## Componentes shadcn
@@ -43,10 +43,11 @@ Documento canônico de design: `docs/design.md`. ADR ancorada: P003. Estas regra
 - Spacing: preferir `gap-2`, `p-3`, `p-4`. Reservar `p-6+` pra cards isolados / hero.
 - **Proibido** padding/spacing arbitrário tipo `pt-7`, `gap-9`. Sempre escala (1/2/3/4/5/6/8/10/12/16).
 
-## Sombras
+## Sombras (P005)
 
-- Hierarquia visual usa **border** + **contraste de bg**. Sombra cinza padrão é **proibida** em features.
-- Sombras permitidas: `shadow-glow` (hover de Button default), `shadow-modal` (dialog/popover/glass card), `shadow-card` (Card solid border).
+- Hierarquia visual usa **border** + **contraste de bg** (surface ladder). Sombra cinza padrão é **proibida** em features.
+- Sombras permitidas: `shadow-modal` (dialog/popover), `shadow-card` (Card hairline border).
+- **Proibido** `shadow-glow`, `backdrop-blur`, `backdrop-filter` em features/app/composed. Glow e blur foram removidos (P005).
 
 ## Ícones
 
@@ -71,6 +72,8 @@ Documento canônico de design: `docs/design.md`. ADR ancorada: P003. Estas regra
 - `<div className="bg-zinc-900">...` — cor numerada.
 - `style={{ color: '#fff' }}` — style inline com cor.
 - `className="hover:shadow-2xl"` — sombra grossa.
+- `className="shadow-glow"` ou `hover:shadow-glow` — glow removido (P005).
+- `className="backdrop-blur"` ou `backdrop-filter` — blur removido (P005).
 - `<div className="rounded-full">...` — pill em UI element (P004). Use `rounded-md` ou `rounded-lg`.
 - `<button>...</button>` em vez de `<Button>` — ignorar primitivo.
 - Inline de form: `<input>` direto em feature em vez de `<Input>`.

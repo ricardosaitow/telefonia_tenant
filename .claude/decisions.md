@@ -99,6 +99,38 @@ Formato fixo: ID, título, data, status, decisão, rationale, alternativas rejei
 - `eslint.config.mjs`: regex de cor numerada estendida pra capturar `\brounded-full\b` em features/app/composed.
 - Quando o Meet for re-skinnado pra alinhar com novo portal, transferir esta decisão pra lá (entrada no `decisions.md` cross-repo).
 
+## P005 — Migração visual Pekiart Glassmorphism → Linear Pure (2026-05-01)
+
+**Status:** DECIDED ✓ DO NOT REOPEN
+**Decisão:** Migrar estética visual do portal de "Pekiart Glassmorphism" (glass panels, glow effects, radial gradients, backdrop-blur) para "Linear Pure" (superfícies sólidas, borders hairline, sem glow, sem blur). Escopo: tokens CSS, componentes primitivos, auth layout, login/signup pages, dashboard, portal headers e sidebar.
+**Rationale:** glassmorphism cria ruído visual desnecessário em produto B2B denso. Linear.app provou que superfícies sólidas + borders sutis + hierarquia por contraste de bg é mais legível e profissional. A identidade Pekiart se preserva pela paleta indigo/violet, tipografia (Inter + Plus Jakarta Sans) e logo — não pelo efeito glass.
+**Mudanças concretas:**
+- Tokens dark: bg mais neutro (#010102 / #0f1011 / #141516), texto sem tint azul (#e8e8e8 / #8a8f98).
+- Tokens light: bg puro (#ffffff / #f5f6f8), sem tint azul.
+- Novo token ladder: `--surface-1/2/3` pra hierarquia de camadas.
+- Shadows: `--shadow-glow` e `--shadow-glow-lg` → `none`. `--shadow-card` → hairline only.
+- `glass-panel` utility: remove `backdrop-filter: blur()`, usa bg sólido + border.
+- `pekiart-radial-bg-layer`: `display: none`.
+- Button: remove translate-y hover + glow, usa `hover:opacity-90`.
+- Input/Textarea/Select: focus via `ring-1 ring-ring/20` em vez de `shadow-glow`.
+- Card glass variant: bg sólido em vez de backdrop-blur.
+- Auth layout: remove radial gradient overlay.
+- Portal/post-login headers e sidebar: remove `backdrop-blur`, usa bg sólido.
+- Letter-spacing headings: `-0.02em` → `-0.03em`.
+**O que NÃO muda:** fontes, radius (P004 mantido), arquitetura de componentes, enforcement de tokens (ESLint), dual-theme, accent hue (#6366f1), APIs de componentes.
+**Alternativas rejeitadas:**
+- Manter glass parcial (só em auth): inconsistência visual entre auth e portal. Melhor ser Linear puro em tudo.
+- Remover accent-light/accent-purple: são parte da identidade Pekiart, ficam como accent textual/border.
+**Impacto:**
+- `globals.css`: tokens reescritos.
+- `button.tsx`, `input.tsx`, `textarea.tsx`, `select.tsx`, `card.tsx`: ajustes de classe.
+- `(auth)/layout.tsx`, `(portal)/layout.tsx`, `(post-login)/layout.tsx`, `portal-sidebar.tsx`: remove glass/blur.
+- `login/page.tsx`, `signup/page.tsx`: card glass → solid.
+- `dashboard/page.tsx`: hover/badge updates.
+- `docs/design.md`, `.claude/rules/design-portal.md`: atualizados.
+
+---
+
 ## Como adicionar nova ADR
 
 1. Decisão tomada no chat? Cria entrada aqui imediatamente.

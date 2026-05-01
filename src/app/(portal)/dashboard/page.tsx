@@ -86,7 +86,7 @@ export default async function DashboardPage() {
           <Card
             variant="solid"
             padding="default"
-            className="hover:border-accent-light/40 flex-row items-center gap-3 transition-colors"
+            className="hover:bg-surface-1 flex-row items-center gap-3 transition-colors"
           >
             <AlertTriangle className="text-accent-light size-5 shrink-0" />
             <div className="flex-1">
@@ -109,7 +109,7 @@ export default async function DashboardPage() {
             <Card
               variant="solid"
               padding="default"
-              className="hover:border-accent-light/40 gap-1 transition-colors"
+              className="hover:bg-surface-1 gap-1 transition-colors"
             >
               <div className="text-muted-foreground flex items-center gap-2 text-xs">
                 {c.icon}
@@ -139,9 +139,9 @@ export default async function DashboardPage() {
                   <Card
                     variant="solid"
                     padding="default"
-                    className="hover:border-accent-light/40 flex-row items-center gap-3 transition-colors"
+                    className="hover:bg-surface-1 flex-row items-center gap-3 transition-colors"
                   >
-                    <span className="bg-glass-bg text-accent-light rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
+                    <span className="bg-surface-2 text-foreground rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
                       {CHANNEL_LABEL[c.channelTipo] ?? c.channelTipo}
                     </span>
                     <span className="text-foreground text-sm">{c.customerIdentifier ?? "—"}</span>

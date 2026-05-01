@@ -176,7 +176,7 @@ export function PortalSidebar({ role }: PortalSidebarProps) {
     <aside
       data-collapsed={collapsed}
       className={cn(
-        "border-divider-strong bg-background/40 sticky top-14 flex h-[calc(100vh-3.5rem)] flex-col border-r backdrop-blur transition-[width] duration-200",
+        "border-divider-strong bg-background sticky top-14 flex h-[calc(100vh-3.5rem)] flex-col border-r transition-[width] duration-200",
         collapsed ? "w-14" : "w-60",
       )}
     >

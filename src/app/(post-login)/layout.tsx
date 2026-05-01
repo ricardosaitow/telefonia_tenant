@@ -14,7 +14,7 @@ export default async function PostLoginLayout({ children }: Readonly<{ children:
 
   return (
     <div className="bg-background flex min-h-full flex-col">
-      <header className="border-divider-strong bg-background/80 sticky top-0 z-30 flex h-14 items-center justify-between border-b px-4 backdrop-blur">
+      <header className="border-divider-strong bg-background sticky top-0 z-30 flex h-14 items-center justify-between border-b px-4">
         <Link href="/" className="flex items-center gap-2" aria-label="Pekiart">
           <Image src="/brand/logo.webp" alt="" width={28} height={28} priority />
           <span className="font-display text-foreground text-sm font-semibold tracking-tight">

@@ -5,22 +5,20 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Button — Pekiart-vibe SEM pill (decisão de produto P004).
- * - Default: rounded-md + glow no hover, font-display.
- * - Demais variants: mesmo radius, sem glow.
+ * Button — Linear pure (P005), sem pill (P004).
+ * - Default: rounded-md, hover:opacity-90. Sem glow, sem translate.
  * - Tokens semânticos only.
  */
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-display font-semibold tracking-wide rounded-md outline-none transition-[background,box-shadow,transform,color,border-color] duration-150 select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-display font-semibold rounded-md outline-none transition-[background,opacity,color,border-color] duration-150 select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground hover:-translate-y-px hover:bg-accent-light hover:shadow-glow active:translate-y-0",
+        default: "bg-primary text-primary-foreground hover:opacity-90",
         outline:
-          "border border-glass-border bg-glass-bg text-foreground backdrop-blur hover:border-accent-light hover:bg-glass-bg",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-glass-bg",
-        ghost: "text-foreground hover:bg-glass-bg",
+          "border border-glass-border bg-transparent text-foreground hover:border-accent-light hover:bg-surface-1",
+        secondary: "bg-surface-1 text-secondary-foreground hover:bg-surface-2",
+        ghost: "text-foreground hover:bg-surface-1",
         destructive: "bg-destructive text-destructive-foreground hover:opacity-90",
         link: "rounded-none text-primary underline-offset-4 hover:underline",
       },
