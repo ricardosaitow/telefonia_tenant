@@ -82,7 +82,9 @@ export async function createExtension(input: CreateExtensionInput): Promise<Crea
     client.release();
   }
 
-  await reloadXml();
+  void reloadXml().catch((err) => {
+    console.error("[fusionpbx] reloadxml falhou (best-effort):", err);
+  });
 
   return { extensionUuid, password };
 }
@@ -92,7 +94,9 @@ export async function createExtension(input: CreateExtensionInput): Promise<Crea
  */
 export async function deleteExtension(extensionUuid: string): Promise<void> {
   await fusionpbxPool.query("DELETE FROM v_extensions WHERE extension_uuid = $1", [extensionUuid]);
-  await reloadXml();
+  void reloadXml().catch((err) => {
+    console.error("[fusionpbx] reloadxml falhou (best-effort):", err);
+  });
 }
 
 /**

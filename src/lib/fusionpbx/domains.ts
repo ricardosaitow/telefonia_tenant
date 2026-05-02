@@ -72,8 +72,12 @@ export async function createDomain(input: CreateDomainInput): Promise<CreateDoma
     client.release();
   }
 
-  // Reload XML fora da TX — operação síncrona com FS, custosa.
-  await reloadXml();
+  // Reload XML fora da TX — best-effort. Domain já commitou no PBX;
+  // reloadxml só ativa em memória. Falha (ESL timeout/down) não pode
+  // impedir o portal de gravar pbxDomainUuid. Próximo reloadxml resolve.
+  void reloadXml().catch((err) => {
+    console.error("[fusionpbx] reloadxml falhou (best-effort):", err);
+  });
 
   // Re-lookup do UUID inserido (idempotente)
   const created = await fusionpbxPool.query<{ domain_uuid: string }>(
@@ -108,7 +112,9 @@ export async function deleteDomain(domainUuid: string): Promise<void> {
     client.release();
   }
 
-  await reloadXml();
+  void reloadXml().catch((err) => {
+    console.error("[fusionpbx] reloadxml falhou (best-effort):", err);
+  });
 }
 
 /**

@@ -5,17 +5,11 @@ import { EmptyState } from "@/components/composed/empty-state";
 import { PageHeader } from "@/components/composed/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ChannelStatusBadge } from "@/features/channels/components/channel-status-badge";
 import { listChannels } from "@/features/channels/queries";
 import { CHANNEL_TYPE_LABEL } from "@/features/channels/schemas";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { can } from "@/lib/rbac/permissions";
-
-const STATUS_LABEL: Record<string, string> = {
-  provisioning: "Provisionando",
-  active: "Ativo",
-  error: "Erro",
-  disabled: "Desabilitado",
-};
 
 const TYPE_ICON = {
   voice_did: Phone,
@@ -81,9 +75,7 @@ export default async function ChannelsPage() {
                       <p className="font-display text-foreground truncate text-base font-semibold tracking-tight">
                         {c.nomeAmigavel}
                       </p>
-                      <span className="bg-glass-bg text-muted-foreground rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
-                        {STATUS_LABEL[c.status] ?? c.status}
-                      </span>
+                      <ChannelStatusBadge status={c.status} />
                     </div>
                     <p className="text-muted-foreground truncate text-xs">
                       {CHANNEL_TYPE_LABEL[c.tipo]} · <code>{c.identificador}</code>

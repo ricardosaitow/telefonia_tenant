@@ -17,7 +17,7 @@ export default async function NewChannelPage() {
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8">
       <PageHeader
         title="Novo canal"
-        description="Cria com status ativo. Workflow de provisioning real (verificação WA, port-in DID) chega quando integrar o data plane."
+        description="Conecte seus canais de Voz (SIP Trunk), WhatsApp Business, E-mail e seu Webchat."
       />
       <Card variant="solid" padding="lg">
         <ChannelForm mode="create" />

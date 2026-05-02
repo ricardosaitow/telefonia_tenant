@@ -25,3 +25,5 @@ export { createDomain, deleteDomain } from "./domains";
 export { reloadXml } from "./esl";
 export type { CreateExtensionInput, CreateExtensionResult } from "./extensions";
 export { createExtension, deleteExtension, readExtensionPassword } from "./extensions";
+export type { CreateGatewayInput, CreateGatewayResult, UpdateGatewayInput } from "./gateways";
+export { createGateway, deleteGateway, updateGateway } from "./gateways";
