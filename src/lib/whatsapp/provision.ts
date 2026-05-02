@@ -20,6 +20,7 @@ const WA_BRIDGE_IMAGE = process.env.WA_BRIDGE_IMAGE ?? "telefonia-ia/wa-bridge:0
 const WA_BRIDGE_INTERNAL_PORT = 9090;
 const WA_BRIDGE_NETWORK_MODE = process.env.WA_BRIDGE_NETWORK_MODE ?? "host";
 const WA_BRIDGE_DOCKER_NETWORK = process.env.WA_BRIDGE_DOCKER_NETWORK ?? "telefonia-ia_default";
+const PORTAL_BASE_URL = process.env.PORTAL_BASE_URL ?? "http://localhost:5000";
 
 const POLL_INTERVAL_MS = 2_000;
 const POLL_MAX_MS = 30_000;
@@ -67,10 +68,17 @@ export async function provisionWaBridge(channelId: string): Promise<ProvisionRes
   const volume = volumeName(channelId);
   const isDockerNetwork = WA_BRIDGE_NETWORK_MODE === "docker";
 
+  const webhookBase = isDockerNetwork ? "http://host.docker.internal:3000" : PORTAL_BASE_URL;
+
   const { containerId } = await createContainer({
     name,
     image: WA_BRIDGE_IMAGE,
-    env: [`WA_PORT=${WA_BRIDGE_INTERNAL_PORT}`],
+    env: [
+      `WA_PORT=${WA_BRIDGE_INTERNAL_PORT}`,
+      `CHANNEL_ID=${channelId}`,
+      `WEBHOOK_URL=${webhookBase}/api/chat/webhook/whatsapp`,
+      `WEBHOOK_ACK_URL=${webhookBase}/api/chat/webhook/whatsapp/ack`,
+    ],
     exposedPorts: { [`${WA_BRIDGE_INTERNAL_PORT}/tcp`]: {} },
     hostConfig: {
       Binds: [`${volume}:/app/.wwebjs_auth`],

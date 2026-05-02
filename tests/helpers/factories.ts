@@ -17,6 +17,14 @@ import type {
   AgentVersion,
   AuditLog,
   Channel,
+  Chat,
+  ChatMessage,
+  ChatMessageType,
+  ChatNote,
+  ChatParticipant,
+  ChatPriority,
+  ChatStatus,
+  ChatType,
   Conversation,
   ConversationAgentHistory,
   ConversationEmailData,
@@ -32,6 +40,7 @@ import type {
   Extension,
   KnowledgeSource,
   MessageTemplate,
+  QuickReply,
   RoutingRule,
   SecurityCategory,
   SecurityEvent,
@@ -630,6 +639,134 @@ export async function makeEmailSignature(input: MakeEmailSignatureInput): Promis
         config: (input.config ?? {}) as never,
         cachedHtml: input.cachedHtml ?? null,
         cachedText: input.cachedText ?? null,
+      },
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Chat module: Chat, ChatMessage, ChatParticipant, ChatNote, QuickReply
+// ---------------------------------------------------------------------------
+
+export interface MakeChatInput {
+  tenantId: string;
+  tipo?: ChatType;
+  titulo?: string;
+  channelId?: string;
+  customerPhone?: string;
+  customerName?: string;
+  status?: ChatStatus;
+  assignedToId?: string;
+  departmentId?: string;
+  priority?: ChatPriority;
+}
+
+export async function makeChat(input: MakeChatInput): Promise<Chat> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.chat.create({
+      data: {
+        tenantId: input.tenantId,
+        tipo: input.tipo ?? "internal",
+        titulo: input.titulo ?? `Chat ${id.slice(0, 8)}`,
+        channelId: input.channelId ?? null,
+        customerPhone: input.customerPhone ?? null,
+        customerName: input.customerName ?? null,
+        status: input.status ?? "in_service",
+        assignedToId: input.assignedToId ?? null,
+        departmentId: input.departmentId ?? null,
+        priority: input.priority ?? "normal",
+      },
+    }),
+  );
+}
+
+export interface MakeChatMessageInput {
+  tenantId: string;
+  chatId: string;
+  senderMembershipId?: string | null;
+  content?: string;
+  tipo?: ChatMessageType;
+  fromCustomer?: boolean;
+  waMessageId?: string;
+}
+
+export async function makeChatMessage(input: MakeChatMessageInput): Promise<ChatMessage> {
+  return asMigrator((tx) =>
+    tx.chatMessage.create({
+      data: {
+        tenantId: input.tenantId,
+        chatId: input.chatId,
+        senderMembershipId: input.senderMembershipId ?? null,
+        content: input.content ?? "Hello from chat",
+        tipo: input.tipo ?? "text",
+        fromCustomer: input.fromCustomer ?? false,
+        waMessageId: input.waMessageId ?? null,
+      },
+    }),
+  );
+}
+
+export interface MakeChatParticipantInput {
+  tenantId: string;
+  chatId: string;
+  membershipId: string;
+  isAdmin?: boolean;
+}
+
+export async function makeChatParticipant(
+  input: MakeChatParticipantInput,
+): Promise<ChatParticipant> {
+  return asMigrator((tx) =>
+    tx.chatParticipant.create({
+      data: {
+        tenantId: input.tenantId,
+        chatId: input.chatId,
+        membershipId: input.membershipId,
+        isAdmin: input.isAdmin ?? false,
+      },
+    }),
+  );
+}
+
+export interface MakeChatNoteInput {
+  tenantId: string;
+  chatId: string;
+  authorMembershipId: string;
+  content?: string;
+}
+
+export async function makeChatNote(input: MakeChatNoteInput): Promise<ChatNote> {
+  return asMigrator((tx) =>
+    tx.chatNote.create({
+      data: {
+        tenantId: input.tenantId,
+        chatId: input.chatId,
+        authorMembershipId: input.authorMembershipId,
+        content: input.content ?? "Internal note",
+      },
+    }),
+  );
+}
+
+export interface MakeQuickReplyInput {
+  tenantId: string;
+  title?: string;
+  shortcut?: string;
+  content?: string;
+  departmentId?: string;
+}
+
+export async function makeQuickReply(input: MakeQuickReplyInput): Promise<QuickReply> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.quickReply.create({
+      data: {
+        tenantId: input.tenantId,
+        title: input.title ?? `Reply ${id.slice(0, 8)}`,
+        shortcut: input.shortcut ?? `/qr-${id.slice(0, 8)}`,
+        content: input.content ?? "Quick reply content",
+        departmentId: input.departmentId ?? null,
       },
     }),
   );

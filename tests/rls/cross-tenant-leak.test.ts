@@ -36,6 +36,11 @@
  *   - email_messages     (RLS no `tenant_id`)
  *   - email_attachments  (RLS no `tenant_id`)
  *   - email_signatures   (RLS no `tenant_id`)
+ *   - chats              (RLS no `tenant_id`)
+ *   - chat_messages      (RLS no `tenant_id`)
+ *   - chat_participants  (RLS no `tenant_id`)
+ *   - chat_notes         (RLS no `tenant_id`)
+ *   - quick_replies      (RLS no `tenant_id`)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
  * sessions e per-account, sem tenant_id -- nao entra aqui.
@@ -50,6 +55,10 @@ import type {
   AgentVersion,
   AuditLog,
   Channel,
+  Chat,
+  ChatMessage,
+  ChatNote,
+  ChatParticipant,
   Conversation,
   ConversationAgentHistory,
   ConversationEmailData,
@@ -64,6 +73,7 @@ import type {
   Extension,
   KnowledgeSource,
   MessageTemplate,
+  QuickReply,
   RoutingRule,
   SecurityEvent,
   Tenant,
@@ -79,6 +89,10 @@ import {
   makeAgentVersion,
   makeAuditLog,
   makeChannel,
+  makeChat,
+  makeChatMessage,
+  makeChatNote,
+  makeChatParticipant,
   makeConversation,
   makeConversationAgentHistory,
   makeConversationEmailData,
@@ -94,6 +108,7 @@ import {
   makeKnowledgeSource,
   makeMembership,
   makeMessageTemplate,
+  makeQuickReply,
   makeRoutingRule,
   makeSecurityEvent,
   makeTenant,
@@ -133,6 +148,11 @@ let emailFolderA: EmailFolder;
 let emailMessageA: EmailMessage;
 let emailAttachmentA: EmailAttachment;
 let emailSignatureA: EmailSignature;
+let chatA: Chat;
+let chatMessageA: ChatMessage;
+let chatParticipantA: ChatParticipant;
+let chatNoteA: ChatNote;
+let quickReplyA: QuickReply;
 
 beforeAll(async () => {
   // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
@@ -273,6 +293,35 @@ beforeAll(async () => {
     tenantId: tenantA.id,
     membershipId: membershipAX.id,
   });
+
+  // Chat module fixtures.
+  chatA = await makeChat({
+    tenantId: tenantA.id,
+    tipo: "internal",
+    titulo: "RLS test chat",
+  });
+  chatMessageA = await makeChatMessage({
+    tenantId: tenantA.id,
+    chatId: chatA.id,
+    senderMembershipId: membershipAX.id,
+    content: "RLS test message",
+  });
+  chatParticipantA = await makeChatParticipant({
+    tenantId: tenantA.id,
+    chatId: chatA.id,
+    membershipId: membershipAX.id,
+  });
+  chatNoteA = await makeChatNote({
+    tenantId: tenantA.id,
+    chatId: chatA.id,
+    authorMembershipId: membershipAX.id,
+    content: "RLS test note",
+  });
+  quickReplyA = await makeQuickReply({
+    tenantId: tenantA.id,
+    title: "RLS test reply",
+    shortcut: `/rls-${crypto.randomUUID().slice(0, 8)}`,
+  });
 });
 
 afterAll(async () => {
@@ -324,6 +373,21 @@ afterAll(async () => {
     await tx.extension.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.usageRecord.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.emailSignature.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.chatNote.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.chatParticipant.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.chatMessage.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.chat.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.quickReply.deleteMany({
       where: { tenantId: { in: [tenantA.id, tenantB.id] } },
     });
     await tx.tenantMembership.deleteMany({
@@ -1187,6 +1251,221 @@ describe("RLS: email_signatures", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Chat module RLS tests (P008)
+// ---------------------------------------------------------------------------
+
+describe("RLS: chats", () => {
+  it("tenant B nao enxerga chat do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.chat.findUnique({ where: { id: chatA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany chat do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.chat.updateMany({
+        where: { id: chatA.id },
+        data: { titulo: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().chat.findUnique({ where: { id: chatA.id } });
+    expect(reread?.titulo).toBe(chatA.titulo);
+  });
+
+  it("tenant B nao consegue deleteMany chat do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.chat.deleteMany({ where: { id: chatA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().chat.findUnique({ where: { id: chatA.id } });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga seu proprio chat", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.chat.findUnique({ where: { id: chatA.id } }),
+    );
+    expect(found?.id).toBe(chatA.id);
+  });
+});
+
+describe("RLS: chat_messages", () => {
+  it("tenant B nao enxerga chat_message do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.chatMessage.findUnique({ where: { id: chatMessageA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany chat_message do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.chatMessage.updateMany({
+        where: { id: chatMessageA.id },
+        data: { content: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().chatMessage.findUnique({
+      where: { id: chatMessageA.id },
+    });
+    expect(reread?.content).toBe(chatMessageA.content);
+  });
+
+  it("tenant B nao consegue deleteMany chat_message do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.chatMessage.deleteMany({ where: { id: chatMessageA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().chatMessage.findUnique({
+      where: { id: chatMessageA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga sua propria chat_message", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.chatMessage.findUnique({ where: { id: chatMessageA.id } }),
+    );
+    expect(found?.id).toBe(chatMessageA.id);
+  });
+});
+
+describe("RLS: chat_participants", () => {
+  it("tenant B nao enxerga chat_participant do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.chatParticipant.findUnique({ where: { id: chatParticipantA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany chat_participant do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.chatParticipant.updateMany({
+        where: { id: chatParticipantA.id },
+        data: { muted: true },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().chatParticipant.findUnique({
+      where: { id: chatParticipantA.id },
+    });
+    expect(reread?.muted).toBe(chatParticipantA.muted);
+  });
+
+  it("tenant B nao consegue deleteMany chat_participant do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.chatParticipant.deleteMany({ where: { id: chatParticipantA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().chatParticipant.findUnique({
+      where: { id: chatParticipantA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga seu proprio chat_participant", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.chatParticipant.findUnique({ where: { id: chatParticipantA.id } }),
+    );
+    expect(found?.id).toBe(chatParticipantA.id);
+  });
+});
+
+describe("RLS: chat_notes", () => {
+  it("tenant B nao enxerga chat_note do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.chatNote.findUnique({ where: { id: chatNoteA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany chat_note do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.chatNote.updateMany({
+        where: { id: chatNoteA.id },
+        data: { content: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().chatNote.findUnique({
+      where: { id: chatNoteA.id },
+    });
+    expect(reread?.content).toBe(chatNoteA.content);
+  });
+
+  it("tenant B nao consegue deleteMany chat_note do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.chatNote.deleteMany({ where: { id: chatNoteA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().chatNote.findUnique({
+      where: { id: chatNoteA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga sua propria chat_note", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.chatNote.findUnique({ where: { id: chatNoteA.id } }),
+    );
+    expect(found?.id).toBe(chatNoteA.id);
+  });
+});
+
+describe("RLS: quick_replies", () => {
+  it("tenant B nao enxerga quick_reply do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.quickReply.findUnique({ where: { id: quickReplyA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany quick_reply do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.quickReply.updateMany({
+        where: { id: quickReplyA.id },
+        data: { title: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().quickReply.findUnique({
+      where: { id: quickReplyA.id },
+    });
+    expect(reread?.title).toBe(quickReplyA.title);
+  });
+
+  it("tenant B nao consegue deleteMany quick_reply do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.quickReply.deleteMany({ where: { id: quickReplyA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().quickReply.findUnique({
+      where: { id: quickReplyA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga sua propria quick_reply", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.quickReply.findUnique({ where: { id: quickReplyA.id } }),
+    );
+    expect(found?.id).toBe(quickReplyA.id);
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
     const list = await appPrisma().tenant.findMany({
@@ -1295,6 +1574,33 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
 
   it("sem app.current_tenant setado, email_signatures devolve 0 rows", async () => {
     const list = await appPrisma().emailSignature.findMany({ where: { id: emailSignatureA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, chats devolve 0 rows", async () => {
+    const list = await appPrisma().chat.findMany({ where: { id: chatA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, chat_messages devolve 0 rows", async () => {
+    const list = await appPrisma().chatMessage.findMany({ where: { id: chatMessageA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, chat_participants devolve 0 rows", async () => {
+    const list = await appPrisma().chatParticipant.findMany({
+      where: { id: chatParticipantA.id },
+    });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, chat_notes devolve 0 rows", async () => {
+    const list = await appPrisma().chatNote.findMany({ where: { id: chatNoteA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, quick_replies devolve 0 rows", async () => {
+    const list = await appPrisma().quickReply.findMany({ where: { id: quickReplyA.id } });
     expect(list).toEqual([]);
   });
 });

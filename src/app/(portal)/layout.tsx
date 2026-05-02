@@ -5,8 +5,10 @@ import type { ReactNode } from "react";
 
 import { PortalSidebar } from "@/components/composed/portal-sidebar";
 import { UserMenu } from "@/components/composed/user-menu";
+import { getTotalUnreadChats } from "@/features/chat/queries";
 import { withTenantContext } from "@/lib/db/tenant-context";
 import { assertSessionAndMembership, TenantNotSelectedError } from "@/lib/rbac";
+import { can } from "@/lib/rbac/permissions";
 
 /**
  * Layout do portal (logado COM tenant ativo).
@@ -35,6 +37,14 @@ export default async function PortalLayout({ children }: Readonly<{ children: Re
   );
   if (!tenant) redirect("/tenants");
 
+  // Compute sidebar badges (async, parallel)
+  const chatUnread = can(ctx.membership.globalRole, "chat:view")
+    ? await getTotalUnreadChats(ctx.activeTenantId, ctx.membership.id)
+    : 0;
+
+  const badges: Record<string, number> = {};
+  if (chatUnread > 0) badges["/chat"] = chatUnread;
+
   return (
     <div className="bg-background flex min-h-full flex-col">
       <header className="border-divider-strong bg-background sticky top-0 z-30 flex h-14 items-center gap-3 border-b px-4">
@@ -59,7 +69,7 @@ export default async function PortalLayout({ children }: Readonly<{ children: Re
       </header>
 
       <div className="flex flex-1">
-        <PortalSidebar role={ctx.membership.globalRole} />
+        <PortalSidebar role={ctx.membership.globalRole} badges={badges} />
         <main className="flex flex-1 flex-col overflow-x-hidden">{children}</main>
       </div>
     </div>

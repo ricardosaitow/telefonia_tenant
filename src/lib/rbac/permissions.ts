@@ -24,6 +24,11 @@ export type Capability =
   | "conversation:reply"
   | "email:view"
   | "email:send"
+  | "chat:view"
+  | "chat:send"
+  | "chat:manage"
+  | "chat:admin"
+  | "quick_reply:manage"
   | "audit:view"
   | "usage:view"
   | "tenant:settings"
@@ -57,6 +62,11 @@ const ALLOW: Record<Capability, MembershipRole[]> = {
   "conversation:reply": ["tenant_owner", "tenant_admin", "department_supervisor", "operator"],
   "email:view": ["tenant_owner", "tenant_admin", "department_supervisor", "operator"],
   "email:send": ["tenant_owner", "tenant_admin", "department_supervisor", "operator"],
+  "chat:view": ["tenant_owner", "tenant_admin", "department_supervisor", "operator"],
+  "chat:send": ["tenant_owner", "tenant_admin", "department_supervisor", "operator"],
+  "chat:manage": ["tenant_owner", "tenant_admin", "department_supervisor"],
+  "chat:admin": ["tenant_owner", "tenant_admin"],
+  "quick_reply:manage": ["tenant_owner", "tenant_admin", "department_supervisor"],
   "audit:view": NON_OPERATOR,
   "usage:view": NON_OPERATOR,
   "tenant:settings": ["tenant_owner", "tenant_admin"],

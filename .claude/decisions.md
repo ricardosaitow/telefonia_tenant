@@ -170,6 +170,40 @@ Formato fixo: ID, título, data, status, decisão, rationale, alternativas rejei
 
 ---
 
+## P008 — Módulo Chat separado de Conversation (atendimento humano + WhatsApp) (2026-05-02)
+
+**Status:** DECIDED
+**Decisão:** Implementar módulo de chat no portal como entidade separada de `Conversation` (D006). 5 novos models: `Chat`, `ChatMessage`, `ChatParticipant`, `ChatNote`, `QuickReply`. Todas tenant-scoped com RLS.
+
+**Diferença Chat vs Conversation:**
+- `Conversation` (D006) é escrita pelo runtime (bridge-ia): tem `Turn`, `tokensIn/Out`, `costUsdTotal`, `AssistanceMode`. Semântica de agente IA.
+- `Chat` é escrito pelo portal: participantes humanos, ACK WhatsApp, read tracking, protocolo, quick replies, notas internas. Semântica de atendimento humano.
+- Ponte futura: `Chat.conversationId?` opcional para cross-reference quando operador humano assume conversa que começou com IA.
+
+**Real-time:** SSE via API Route (`ReadableStream`). Next.js 16 não tem suporte nativo a WebSocket; custom server com Socket.io viola o modelo do framework. `ChatEventBus` singleton via `globalThis`. V1: single-instance. V2: Redis pub/sub para multi-instance.
+
+**WhatsApp:** via wa-bridge (não whatsapp-web.js). Portal já tem `Channel` com campos wa-bridge. Inbound: webhook → cria/atualiza Chat+ChatMessage → SSE. Outbound: Server Action → salva ChatMessage → HTTP POST wa-bridge → atualiza waMessageId → SSE.
+
+**FK para TenantMembership (não Account):** toda referência a "usuário" no chat usa `membershipId` (contexto do tenant), não `accountId`.
+
+**RBAC:** `chat:view` (owner/admin/supervisor/operator), `chat:send` (idem), `chat:manage` (owner/admin/supervisor), `chat:admin` (owner/admin), `quick_reply:manage` (owner/admin/supervisor).
+
+**Rationale:** separar Chat de Conversation evita poluir o modelo de dados do runtime IA com campos de atendimento humano (participantes, ACK WhatsApp, read tracking, protocol, quick replies). Os dois mundos coexistem e podem ser cross-referenced via FK opcional.
+
+**Alternativas rejeitadas:**
+- Reutilizar Conversation+Turn pra chat: forçaria adicionar campos de atendimento humano (participants, ACK, read tracking) em tabelas do runtime IA. Polui o modelo, cria confusão semântica, e dificulta queries otimizadas para cada caso.
+- WebSocket via custom server: viola o modelo de deploy Next.js (serverless-ready). SSE cobre push server→client; mutações via Server Actions (já é o padrão).
+
+**Impacto:**
+- 5 tabelas novas com RLS + testes anti-cross-tenant.
+- 4 enums: `ChatType`, `ChatStatus`, `ChatPriority`, `ChatMessageType`.
+- Sidebar: "Chat" com `MessageCircle` no grupo "Operação" após "Email".
+- Relações inversas em Tenant, TenantMembership, Channel, Department.
+- Feature folder: `src/features/chat/` + `src/features/quick-replies/`.
+- API routes: SSE, webhook inbound/ack, upload, media serve.
+
+---
+
 ## Como adicionar nova ADR
 
 1. Decisão tomada no chat? Cria entrada aqui imediatamente.

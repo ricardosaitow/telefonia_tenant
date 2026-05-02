@@ -118,6 +118,11 @@ model Tenant {
   emailFolders          EmailFolder[]
   emailAttachments      EmailAttachment[]
   emailSignatures       EmailSignature[]
+  chats                 Chat[]
+  chatMessages          ChatMessage[]
+  chatParticipants      ChatParticipant[]
+  chatNotes             ChatNote[]
+  quickReplies          QuickReply[]
 
   @@map("tenants")
 }
@@ -182,10 +187,15 @@ model TenantMembership {
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  account          Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  auditLogs        AuditLog[]
-  emailSignature   EmailSignature?
+  tenant              Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account             Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  auditLogs           AuditLog[]
+  emailSignature      EmailSignature?
+  chatsAssignedTo     Chat[]           @relation("chatAssignedTo")
+  chatsFinishedBy     Chat[]           @relation("chatFinishedBy")
+  chatMessagesSent    ChatMessage[]    @relation("chatMessageSender")
+  chatParticipations  ChatParticipant[]
+  chatNotesAuthored   ChatNote[]       @relation("chatNoteAuthor")
 
   @@unique([tenantId, accountId])
   @@index([tenantId])
@@ -271,6 +281,8 @@ model Department {
   agents                  Agent[]  @relation("DepartmentAgents")
   routingRulesAsTarget    RoutingRule[] @relation("RoutingRuleTargetDepartment")
   conversationsAsCurrent  Conversation[] @relation("ConversationCurrentDepartment")
+  chats                   Chat[]
+  quickReplies            QuickReply[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -501,6 +513,7 @@ model Channel {
   conversations         Conversation[]
   emailMessages         EmailMessage[]
   emailFolders          EmailFolder[]
+  chats                 Chat[]
 
   // identificador único por tenant — evita 2 channels com mesmo DID/email/etc.
   @@unique([tenantId, tipo, identificador])
@@ -1274,4 +1287,267 @@ model EmailSignature {
 
   @@index([tenantId])
   @@map("email_signatures")
+}
+
+// ===========================================================================
+// CHAT — módulo de atendimento humano interno + WhatsApp (P008).
+//
+// Chat ≠ Conversation (D006). Conversation é runtime IA (Turn, tokens, Agent).
+// Chat é atendimento humano: participantes, ACK WhatsApp, read tracking,
+// protocolo, quick replies, notas internas.
+//
+// Ponte futura: Chat.conversationId? opcional pra cross-reference quando
+// operador humano assume conversa que começou com IA.
+//
+// FK para TenantMembership (não Account) — toda referência a "usuário" no
+// chat usa membershipId (contexto do tenant).
+//
+// 5 tabelas: Chat, ChatMessage, ChatParticipant, ChatNote, QuickReply.
+// Todas tenant-scoped com RLS (D002).
+// ===========================================================================
+
+enum ChatType {
+  internal
+  whatsapp
+
+  @@map("chat_type")
+}
+
+enum ChatStatus {
+  triage
+  waiting
+  in_service
+  finished
+
+  @@map("chat_status")
+}
+
+enum ChatPriority {
+  low
+  normal
+  high
+  urgent
+
+  @@map("chat_priority")
+}
+
+enum ChatMessageType {
+  text
+  image
+  audio
+  video
+  document
+  location
+  contact
+  voice_note
+  system
+
+  @@map("chat_message_type")
+}
+
+// ---------------------------------------------------------------------------
+// Chat — conversa de atendimento humano. Dois tipos: internal (entre membros
+// do tenant) e whatsapp (atendimento ao cliente via wa-bridge).
+//
+// Status flow (WhatsApp): triage → waiting → in_service → finished.
+// Internal: in_service (default) → finished.
+//
+// lastMessageId / lastActivityAt: denormalizados pra lista de conversas
+// sem JOIN pesado. Atualizados por trigger ou Server Action.
+//
+// protocol: identificador legível YYYYMM+NNN gerado na abertura de WhatsApp.
+// ---------------------------------------------------------------------------
+model Chat {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  tenantId          String       @map("tenant_id") @db.Uuid
+  tipo              ChatType
+
+  titulo            String?      // group name (internal chat)
+
+  // Protocol: readable ID for WhatsApp chats (YYYYMM+NNN)
+  protocol          String?
+
+  // WhatsApp fields
+  channelId         String?      @map("channel_id") @db.Uuid
+  customerPhone     String?      @map("customer_phone")
+  customerName      String?      @map("customer_name")
+  customerAvatarUrl String?      @map("customer_avatar_url")
+
+  // Assignment
+  status            ChatStatus   @default(triage)
+  assignedToId      String?      @map("assigned_to_id") @db.Uuid
+  departmentId      String?      @map("department_id") @db.Uuid
+  priority          ChatPriority @default(normal)
+  tags              String[]     @default([])
+
+  // Flags
+  pinned            Boolean      @default(false)
+  archived          Boolean      @default(false)
+  blocked           Boolean      @default(false)
+
+  // Denormalized last message
+  lastMessageId     String?      @unique @map("last_message_id") @db.Uuid
+  lastActivityAt    DateTime     @default(now()) @map("last_activity_at") @db.Timestamptz(6)
+
+  // Finalization
+  finishedAt        DateTime?    @map("finished_at") @db.Timestamptz(6)
+  finishedById      String?      @map("finished_by_id") @db.Uuid
+
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel           Channel?          @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  assignedTo        TenantMembership? @relation("chatAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  department        Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  finishedBy        TenantMembership? @relation("chatFinishedBy", fields: [finishedById], references: [id], onDelete: SetNull)
+  lastMessage       ChatMessage?      @relation("chatLastMessage", fields: [lastMessageId], references: [id], onDelete: SetNull)
+  participants      ChatParticipant[]
+  messages          ChatMessage[]     @relation("chatMessages")
+  notes             ChatNote[]
+
+  @@index([tenantId, lastActivityAt(sort: Desc)])
+  @@index([tenantId, tipo, status])
+  @@index([tenantId, assignedToId])
+  @@index([customerPhone])
+  @@map("chats")
+}
+
+// ---------------------------------------------------------------------------
+// ChatMessage — mensagem individual num Chat. senderMembershipId null = cliente
+// WhatsApp (fromCustomer=true). Suporta texto, mídia, localização, contato.
+//
+// waMessageId: ID da mensagem no wa-bridge, único — usado pra ACK tracking.
+// ackLevel: 0=pending, 1=sent, 2=delivered, 3=read (padrão wa-bridge).
+//
+// quotedMessageId: reply/quote a outra mensagem (self-ref).
+// ---------------------------------------------------------------------------
+model ChatMessage {
+  id                  String          @id @default(uuid(7)) @db.Uuid
+  tenantId            String          @map("tenant_id") @db.Uuid
+  chatId              String          @map("chat_id") @db.Uuid
+  senderMembershipId  String?         @map("sender_membership_id") @db.Uuid
+  content             String          @db.Text
+  tipo                ChatMessageType @default(text)
+
+  // WhatsApp
+  waMessageId         String?         @unique @map("wa_message_id")
+  ackLevel            Int?            @map("ack_level")
+  fromCustomer        Boolean         @default(false) @map("from_customer")
+
+  // Media
+  mediaUrl            String?         @map("media_url")
+  mediaName           String?         @map("media_name")
+  mediaMimeType       String?         @map("media_mime_type")
+  mediaSize           Int?            @map("media_size")
+
+  // Location
+  locationLat         Float?          @map("location_lat")
+  locationLng         Float?          @map("location_lng")
+  locationName        String?         @map("location_name")
+
+  // Quote
+  quotedMessageId     String?         @map("quoted_message_id") @db.Uuid
+
+  // Edit/delete
+  edited              Boolean         @default(false)
+  deletedAt           DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chat                Chat                 @relation("chatMessages", fields: [chatId], references: [id], onDelete: Cascade)
+  sender              TenantMembership?    @relation("chatMessageSender", fields: [senderMembershipId], references: [id], onDelete: SetNull)
+  quotedMessage       ChatMessage?         @relation("messageQuotes", fields: [quotedMessageId], references: [id], onDelete: SetNull)
+  quotedBy            ChatMessage[]        @relation("messageQuotes")
+  chatAsLastMessage   Chat?                @relation("chatLastMessage")
+
+  @@index([tenantId])
+  @@index([chatId, createdAt])
+  @@index([waMessageId])
+  @@map("chat_messages")
+}
+
+// ---------------------------------------------------------------------------
+// ChatParticipant — membro de um Chat. Usado pra internal groups e pra
+// registrar quais operadores participam de um atendimento WhatsApp.
+//
+// lastReadAt: cursor de leitura do participante — unread count = messages
+// com createdAt > lastReadAt.
+// ---------------------------------------------------------------------------
+model ChatParticipant {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  chatId        String    @map("chat_id") @db.Uuid
+  membershipId  String    @map("membership_id") @db.Uuid
+  isAdmin       Boolean   @default(false) @map("is_admin")
+  lastReadAt    DateTime  @default(now()) @map("last_read_at") @db.Timestamptz(6)
+  muted         Boolean   @default(false)
+  notifications Boolean   @default(true)
+  joinedAt      DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  leftAt        DateTime? @map("left_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chat          Chat             @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  membership    TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, membershipId])
+  @@index([tenantId])
+  @@index([membershipId])
+  @@map("chat_participants")
+}
+
+// ---------------------------------------------------------------------------
+// ChatNote — nota interna num chat de atendimento. Visível apenas para staff,
+// não aparece na conversa com o cliente. Usado pra registrar observações,
+// instruções de transferência, etc.
+// ---------------------------------------------------------------------------
+model ChatNote {
+  id                  String   @id @default(uuid(7)) @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  chatId              String   @map("chat_id") @db.Uuid
+  authorMembershipId  String   @map("author_membership_id") @db.Uuid
+  content             String   @db.Text
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chat    Chat             @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  author  TenantMembership @relation("chatNoteAuthor", fields: [authorMembershipId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([chatId, createdAt])
+  @@map("chat_notes")
+}
+
+// ---------------------------------------------------------------------------
+// QuickReply — resposta rápida pré-configurada. Ativada via "/" no input.
+// Escopo: tenant-wide ou por departamento (departmentId optional).
+// Unique constraint em [tenantId, shortcut, departmentId] — mesmo atalho
+// pode existir em departamentos diferentes.
+// ---------------------------------------------------------------------------
+model QuickReply {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  title         String
+  shortcut      String
+  content       String    @db.Text
+  mediaUrl      String?   @map("media_url")
+  mediaMimeType String?   @map("media_mime_type")
+  departmentId  String?   @map("department_id") @db.Uuid
+  usageCount    Int       @default(0) @map("usage_count")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, shortcut, departmentId])
+  @@index([tenantId])
+  @@map("quick_replies")
 }

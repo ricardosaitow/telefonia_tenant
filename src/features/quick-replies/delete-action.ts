@@ -1,0 +1,30 @@
+"use server";
+
+import { withTenantContext } from "@/lib/db/tenant-context";
+import { assertSessionAndMembership } from "@/lib/rbac";
+import { assertCan } from "@/lib/rbac/permissions";
+import { actionClient } from "@/lib/safe-action";
+
+import { deleteQuickReplySchema } from "./schemas";
+
+export const deleteQuickReplyAction = actionClient
+  .schema(deleteQuickReplySchema)
+  .action(async ({ parsedInput }) => {
+    const ctx = await assertSessionAndMembership();
+    assertCan(ctx.membership.globalRole, "quick_reply:manage");
+
+    const { id } = parsedInput;
+
+    return withTenantContext(ctx.activeTenantId, async (tx) => {
+      const existing = await tx.quickReply.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+
+      if (!existing) throw new Error("Resposta rápida não encontrada.");
+
+      await tx.quickReply.delete({ where: { id } });
+
+      return { ok: true };
+    });
+  });

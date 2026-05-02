@@ -10,6 +10,7 @@ import {
   Hash,
   LayoutDashboard,
   Mail,
+  MessageCircle,
   MessageSquareQuote,
   MessagesSquare,
   Phone,
@@ -59,6 +60,12 @@ const GROUPS: SidebarGroup[] = [
         href: "/email",
         icon: <Mail />,
         capability: "email:view",
+      },
+      {
+        label: "Chat",
+        href: "/chat",
+        icon: <MessageCircle />,
+        capability: "chat:view",
       },
     ],
   },
@@ -157,9 +164,11 @@ const STORAGE_KEY = "portal-sidebar-collapsed";
 
 type PortalSidebarProps = {
   role: MembershipRole;
+  /** Map of href → badge count (e.g. { "/chat": 3 }) */
+  badges?: Record<string, number>;
 };
 
-export function PortalSidebar({ role }: PortalSidebarProps) {
+export function PortalSidebar({ role, badges = {} }: PortalSidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -202,7 +211,12 @@ export function PortalSidebar({ role }: PortalSidebarProps) {
               <ul className="flex flex-col gap-0.5">
                 {visibleItems.map((item) => (
                   <li key={item.href}>
-                    <SidebarLink item={item} pathname={pathname} collapsed={collapsed} />
+                    <SidebarLink
+                      item={item}
+                      pathname={pathname}
+                      collapsed={collapsed}
+                      badge={badges[item.href]}
+                    />
                   </li>
                 ))}
               </ul>
@@ -227,10 +241,12 @@ function SidebarLink({
   item,
   pathname,
   collapsed,
+  badge,
 }: {
   item: SidebarItem;
   pathname: string;
   collapsed: boolean;
+  badge?: number;
 }) {
   const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
   const isDisabled = item.comingSoon;
@@ -248,18 +264,25 @@ function SidebarLink({
       {!collapsed ? (
         <>
           <span className="flex-1 truncate text-sm">{item.label}</span>
+          {badge && badge > 0 ? (
+            <span className="bg-primary text-primary-foreground rounded-md px-1.5 py-0.5 text-[10px] leading-none font-medium">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          ) : null}
           {item.comingSoon ? (
             <span className="bg-glass-bg text-muted-foreground rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
               em breve
             </span>
           ) : null}
         </>
+      ) : badge && badge > 0 ? (
+        <span className="bg-primary absolute top-0.5 right-1 size-2 rounded-md" />
       ) : null}
     </>
   );
 
   const baseClasses = cn(
-    "flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors",
+    "relative flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors",
     isActive
       ? "bg-glass-bg text-foreground"
       : isDisabled
