@@ -1,4 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
 import { PrismaClient } from "@/generated/prisma/client";
 
@@ -22,10 +23,12 @@ import { PrismaClient } from "@/generated/prisma/client";
  * src/features/auth/signup* e src/features/onboarding/**.
  *
  * Singleton via globalThis (mesma razão do prisma normal — hot reload).
+ * Pool pg explícito — mesma razão do client.ts.
  */
 
 declare global {
   var __portalPrismaAdmin: PrismaClient | undefined;
+  var __portalPgPoolAdmin: pg.Pool | undefined;
 }
 
 function createAdminClient(): PrismaClient {
@@ -36,7 +39,11 @@ function createAdminClient(): PrismaClient {
         "superuser (postgres) — separado do app_user usado pelo runtime.",
     );
   }
-  const adapter = new PrismaPg(connectionString);
+
+  const pool = new pg.Pool({ connectionString, max: 5 });
+  globalThis.__portalPgPoolAdmin = pool;
+
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 

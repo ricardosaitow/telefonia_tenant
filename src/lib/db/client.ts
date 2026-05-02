@@ -10,14 +10,20 @@
  *
  * Singleton via globalThis pra sobreviver hot-reload do Next em dev (cada
  * request criando um PrismaClient novo esgota pool e quebra ECONNREFUSED).
+ *
+ * Pool pg explícito (não string) evita warning de pg@8 "Calling client.query()
+ * when already executing" — PrismaPg com string cria Pool interno a cada
+ * connect() sem reutilizar, causando race em Next.js layout+page paralelos.
  */
 
 import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
 import { PrismaClient } from "@/generated/prisma/client";
 
 declare global {
   var __portalPrisma: PrismaClient | undefined;
+  var __portalPgPool: pg.Pool | undefined;
 }
 
 function createPrismaClient(): PrismaClient {
@@ -29,7 +35,10 @@ function createPrismaClient(): PrismaClient {
     );
   }
 
-  const adapter = new PrismaPg(connectionString);
+  const pool = new pg.Pool({ connectionString, max: 10 });
+  globalThis.__portalPgPool = pool;
+
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 
