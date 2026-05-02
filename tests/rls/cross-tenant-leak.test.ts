@@ -32,6 +32,10 @@
  *   - turns              (RLS no `tenant_id` denormalizado)
  *   - security_events    (RLS no `tenant_id` nullable -- null fica fora pra app_user)
  *   - usage_records      (RLS no `tenant_id`)
+ *   - email_folders      (RLS no `tenant_id`)
+ *   - email_messages     (RLS no `tenant_id`)
+ *   - email_attachments  (RLS no `tenant_id`)
+ *   - email_signatures   (RLS no `tenant_id`)
  *
  * accounts e GLOBAL (D004) -- NAO tem RLS, nao entra aqui.
  * sessions e per-account, sem tenant_id -- nao entra aqui.
@@ -53,6 +57,10 @@ import type {
   ConversationVoiceData,
   ConversationWhatsappData,
   Department,
+  EmailAttachment,
+  EmailFolder,
+  EmailMessage,
+  EmailSignature,
   Extension,
   KnowledgeSource,
   MessageTemplate,
@@ -78,6 +86,10 @@ import {
   makeConversationVoiceData,
   makeConversationWhatsappData,
   makeDepartment,
+  makeEmailAttachment,
+  makeEmailFolder,
+  makeEmailMessage,
+  makeEmailSignature,
   makeExtension,
   makeKnowledgeSource,
   makeMembership,
@@ -116,6 +128,11 @@ let turnA: Turn;
 let securityEventA: SecurityEvent;
 let securityEventGlobal: SecurityEvent;
 let usageRecordA: UsageRecord;
+let emailChannelA: Channel;
+let emailFolderA: EmailFolder;
+let emailMessageA: EmailMessage;
+let emailAttachmentA: EmailAttachment;
+let emailSignatureA: EmailSignature;
 
 beforeAll(async () => {
   // Setup: 2 tenants distintos, 1 account por tenant, membership cruzada.
@@ -227,6 +244,35 @@ beforeAll(async () => {
     quantity: 1234,
     unitCostUsd: 0.0000001,
   });
+
+  // Webmail fixtures: channel tipo=email + folder + message + attachment.
+  emailChannelA = await makeChannel({
+    tenantId: tenantA.id,
+    tipo: "email",
+    identificador: `mail-${crypto.randomUUID().slice(0, 8)}@test.local`,
+    nomeAmigavel: "Email Channel A",
+  });
+  emailFolderA = await makeEmailFolder({
+    tenantId: tenantA.id,
+    channelId: emailChannelA.id,
+    tipo: "inbox",
+    nome: "Inbox",
+  });
+  emailMessageA = await makeEmailMessage({
+    tenantId: tenantA.id,
+    channelId: emailChannelA.id,
+    folderId: emailFolderA.id,
+  });
+  emailAttachmentA = await makeEmailAttachment({
+    tenantId: tenantA.id,
+    emailId: emailMessageA.id,
+  });
+
+  // EmailSignature: 1:1 com membership (membershipAX pertence a tenantA).
+  emailSignatureA = await makeEmailSignature({
+    tenantId: tenantA.id,
+    membershipId: membershipAX.id,
+  });
 });
 
 afterAll(async () => {
@@ -265,9 +311,21 @@ afterAll(async () => {
     await tx.agentVersion.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.agent.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.department.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
+    await tx.emailAttachment.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.emailMessage.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
+    await tx.emailFolder.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
     await tx.channel.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.extension.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await tx.usageRecord.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
+    await tx.emailSignature.deleteMany({
+      where: { tenantId: { in: [tenantA.id, tenantB.id] } },
+    });
     await tx.tenantMembership.deleteMany({
       where: { tenantId: { in: [tenantA.id, tenantB.id] } },
     });
@@ -957,6 +1015,178 @@ describe("RLS: usage_records", () => {
   });
 });
 
+describe("RLS: email_folders", () => {
+  it("tenant B nao enxerga email_folder do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.emailFolder.findUnique({ where: { id: emailFolderA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany email_folder do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.emailFolder.updateMany({
+        where: { id: emailFolderA.id },
+        data: { nome: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().emailFolder.findUnique({
+      where: { id: emailFolderA.id },
+    });
+    expect(reread?.nome).toBe(emailFolderA.nome);
+  });
+
+  it("tenant B nao consegue deleteMany email_folder do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.emailFolder.deleteMany({ where: { id: emailFolderA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().emailFolder.findUnique({
+      where: { id: emailFolderA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga sua propria email_folder", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.emailFolder.findUnique({ where: { id: emailFolderA.id } }),
+    );
+    expect(found?.id).toBe(emailFolderA.id);
+  });
+});
+
+describe("RLS: email_messages", () => {
+  it("tenant B nao enxerga email_message do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.emailMessage.findUnique({ where: { id: emailMessageA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany email_message do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.emailMessage.updateMany({
+        where: { id: emailMessageA.id },
+        data: { subject: "PWNED" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().emailMessage.findUnique({
+      where: { id: emailMessageA.id },
+    });
+    expect(reread?.subject).toBe(emailMessageA.subject);
+  });
+
+  it("tenant B nao consegue deleteMany email_message do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.emailMessage.deleteMany({ where: { id: emailMessageA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().emailMessage.findUnique({
+      where: { id: emailMessageA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga sua propria email_message", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.emailMessage.findUnique({ where: { id: emailMessageA.id } }),
+    );
+    expect(found?.id).toBe(emailMessageA.id);
+  });
+});
+
+describe("RLS: email_attachments", () => {
+  it("tenant B nao enxerga email_attachment do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.emailAttachment.findUnique({ where: { id: emailAttachmentA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany email_attachment do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.emailAttachment.updateMany({
+        where: { id: emailAttachmentA.id },
+        data: { filename: "PWNED.pdf" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().emailAttachment.findUnique({
+      where: { id: emailAttachmentA.id },
+    });
+    expect(reread?.filename).toBe(emailAttachmentA.filename);
+  });
+
+  it("tenant B nao consegue deleteMany email_attachment do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.emailAttachment.deleteMany({ where: { id: emailAttachmentA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().emailAttachment.findUnique({
+      where: { id: emailAttachmentA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga sua propria email_attachment", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.emailAttachment.findUnique({ where: { id: emailAttachmentA.id } }),
+    );
+    expect(found?.id).toBe(emailAttachmentA.id);
+  });
+});
+
+describe("RLS: email_signatures", () => {
+  it("tenant B nao enxerga email_signature do tenant A", async () => {
+    const found = await asTenant(tenantB.id, (tx) =>
+      tx.emailSignature.findUnique({ where: { id: emailSignatureA.id } }),
+    );
+    expect(found).toBeNull();
+  });
+
+  it("tenant B nao consegue updateMany email_signature do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.emailSignature.updateMany({
+        where: { id: emailSignatureA.id },
+        data: { cachedHtml: "<p>PWNED</p>" },
+      }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().emailSignature.findUnique({
+      where: { id: emailSignatureA.id },
+    });
+    expect(reread?.cachedHtml).toBe(emailSignatureA.cachedHtml);
+  });
+
+  it("tenant B nao consegue deleteMany email_signature do tenant A", async () => {
+    const result = await asTenant(tenantB.id, (tx) =>
+      tx.emailSignature.deleteMany({ where: { id: emailSignatureA.id } }),
+    );
+    expect(result.count).toBe(0);
+
+    const reread = await migratorPrisma().emailSignature.findUnique({
+      where: { id: emailSignatureA.id },
+    });
+    expect(reread).not.toBeNull();
+  });
+
+  it("tenant A enxerga sua propria email_signature", async () => {
+    const found = await asTenant(tenantA.id, (tx) =>
+      tx.emailSignature.findUnique({ where: { id: emailSignatureA.id } }),
+    );
+    expect(found?.id).toBe(emailSignatureA.id);
+  });
+});
+
 describe("RLS: contexto ausente (defesa em profundidade)", () => {
   it("sem app.current_tenant setado, tenants devolve 0 rows", async () => {
     const list = await appPrisma().tenant.findMany({
@@ -1045,6 +1275,26 @@ describe("RLS: contexto ausente (defesa em profundidade)", () => {
 
   it("sem app.current_tenant setado, usage_records devolve 0 rows", async () => {
     const list = await appPrisma().usageRecord.findMany({ where: { id: usageRecordA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, email_folders devolve 0 rows", async () => {
+    const list = await appPrisma().emailFolder.findMany({ where: { id: emailFolderA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, email_messages devolve 0 rows", async () => {
+    const list = await appPrisma().emailMessage.findMany({ where: { id: emailMessageA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, email_attachments devolve 0 rows", async () => {
+    const list = await appPrisma().emailAttachment.findMany({ where: { id: emailAttachmentA.id } });
+    expect(list).toEqual([]);
+  });
+
+  it("sem app.current_tenant setado, email_signatures devolve 0 rows", async () => {
+    const list = await appPrisma().emailSignature.findMany({ where: { id: emailSignatureA.id } });
     expect(list).toEqual([]);
   });
 });

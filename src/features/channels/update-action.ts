@@ -4,6 +4,7 @@ import { parseWithZod } from "@conform-to/zod";
 import { redirect } from "next/navigation";
 
 import { recordAuditInTx } from "@/lib/audit/record";
+import { encryptCredential, isEncryptionConfigured } from "@/lib/crypto/channel-credentials";
 import { withTenantContext } from "@/lib/db/tenant-context";
 import { createGateway, updateGateway } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
@@ -22,6 +23,15 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
 
   const v = submission.value;
 
+  // Email: require encryption key when passwords are being set
+  if (v.tipo === "email" && (v.smtpPass || v.inboundPass) && !isEncryptionConfigured()) {
+    return submission.reply({
+      formErrors: [
+        "Chave de criptografia não configurada (CHANNEL_ENCRYPTION_KEY). Contate o administrador do sistema.",
+      ],
+    });
+  }
+
   try {
     const result = await withTenantContext(ctx.activeTenantId, async (tx) => {
       const before = await tx.channel.findUnique({
@@ -38,6 +48,15 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
           sipUsername: true,
           sipRegister: true,
           pbxGatewayUuid: true,
+          smtpHost: true,
+          smtpPort: true,
+          smtpUser: true,
+          smtpSecurity: true,
+          inboundProto: true,
+          inboundHost: true,
+          inboundPort: true,
+          inboundUser: true,
+          inboundSecurity: true,
         },
       });
       if (!before) return { count: 0 };
@@ -95,6 +114,25 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
         }
       }
 
+      // Email: handle password keep-or-update logic
+      let emailData = {};
+      if (v.tipo === "email") {
+        emailData = {
+          smtpHost: v.smtpHost || undefined,
+          smtpPort: v.smtpPort ?? 587,
+          smtpUser: v.smtpUser || undefined,
+          smtpSecurity: v.smtpSecurity ?? "tls",
+          inboundProto: v.inboundProto ?? "imap",
+          inboundHost: v.inboundHost || undefined,
+          inboundPort: v.inboundPort ?? (v.inboundProto === "pop3" ? 995 : 993),
+          inboundUser: v.inboundUser || undefined,
+          inboundSecurity: v.inboundSecurity ?? "tls",
+          // Password empty = keep existing (don't overwrite)
+          ...(v.smtpPass ? { smtpPassEnc: encryptCredential(v.smtpPass) } : {}),
+          ...(v.inboundPass ? { inboundPassEnc: encryptCredential(v.inboundPass) } : {}),
+        };
+      }
+
       const after = await tx.channel.update({
         where: { id: v.id },
         data: {
@@ -112,6 +150,7 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
                 pbxGatewayUuid,
               }
             : {}),
+          ...emailData,
         },
         select: {
           id: true,
@@ -125,6 +164,15 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
           sipUsername: true,
           sipRegister: true,
           pbxGatewayUuid: true,
+          smtpHost: true,
+          smtpPort: true,
+          smtpUser: true,
+          smtpSecurity: true,
+          inboundProto: true,
+          inboundHost: true,
+          inboundPort: true,
+          inboundUser: true,
+          inboundSecurity: true,
         },
       });
 

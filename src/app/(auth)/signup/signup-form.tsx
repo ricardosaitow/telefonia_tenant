@@ -13,7 +13,11 @@ import { Label } from "@/components/ui/label";
 import { signupSchema } from "@/features/auth/schemas";
 import { signupFormAction } from "@/features/auth/signup-form-action";
 
-export function SignupForm() {
+type SignupFormProps = {
+  next?: string;
+};
+
+export function SignupForm({ next }: SignupFormProps) {
   const [lastResult, action, pending] = useActionState(signupFormAction, undefined);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -36,6 +40,7 @@ export function SignupForm() {
       ) : null}
 
       <input type="hidden" name="locale" value="pt-BR" />
+      {next ? <input type="hidden" name="next" value={next} /> : null}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">

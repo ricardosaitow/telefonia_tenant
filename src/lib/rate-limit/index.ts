@@ -88,4 +88,8 @@ export const RATE_LIMITS = {
   SIGNUP: { limit: 5, windowSec: 60 }, // 5/min/IP — signup é bem mais pesado (cria tenant)
   AUTHENTICATED_API: { limit: 60, windowSec: 60 }, // 60/min/account
   EXPENSIVE: { limit: 5, windowSec: 60 }, // 5/min/account — publish, conectar integração
+  PASSWORD_RESET: { limit: 3, windowSec: 3600 }, // 3/hr/email
+  INVITE: { limit: 10, windowSec: 60 }, // 10/min/account
+  TEST_CONNECTION: { limit: 5, windowSec: 60 }, // 5/min/account — SMTP/IMAP/POP3 test
+  EMAIL_SEND: { limit: 30, windowSec: 60 }, // 30/min/account — webmail send
 } as const;

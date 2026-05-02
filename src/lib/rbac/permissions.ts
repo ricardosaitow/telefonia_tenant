@@ -21,6 +21,9 @@ export type Capability =
   | "integration:manage"
   | "template:manage"
   | "conversation:view"
+  | "conversation:reply"
+  | "email:view"
+  | "email:send"
   | "audit:view"
   | "usage:view"
   | "tenant:settings"
@@ -51,6 +54,9 @@ const ALLOW: Record<Capability, MembershipRole[]> = {
   "integration:manage": ["tenant_owner", "tenant_admin"],
   "template:manage": ["tenant_owner", "tenant_admin", "department_supervisor"],
   "conversation:view": ALL_ROLES,
+  "conversation:reply": ["tenant_owner", "tenant_admin", "department_supervisor", "operator"],
+  "email:view": ["tenant_owner", "tenant_admin", "department_supervisor", "operator"],
+  "email:send": ["tenant_owner", "tenant_admin", "department_supervisor", "operator"],
   "audit:view": NON_OPERATOR,
   "usage:view": NON_OPERATOR,
   "tenant:settings": ["tenant_owner", "tenant_admin"],

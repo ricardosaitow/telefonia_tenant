@@ -70,3 +70,4 @@ prisma/generated/
 
 /src/generated/prisma
 scheduled_tasks.lock
+data/

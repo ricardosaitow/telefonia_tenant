@@ -4,23 +4,24 @@ import { parseWithZod } from "@conform-to/zod";
 import { redirect } from "next/navigation";
 
 import { recordAuditInTx } from "@/lib/audit/record";
+import { generateToken, hashToken } from "@/lib/auth/tokens";
 import { prismaAdmin } from "@/lib/db/admin-client";
+import { sendEmail } from "@/lib/email/send";
+import { InviteMemberEmail } from "@/lib/email/templates/invite-member";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 
-import { addMemberInputSchema } from "./schemas";
+import { addMemberInputSchema, ROLE_LABEL } from "./schemas";
+
+const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
 
 /**
- * Adiciona membro existente (Account já cadastrada) ao tenant ativo.
+ * Adiciona membro ao tenant ativo.
  *
- * V1 — sem convite por email ainda:
- *  - Account precisa existir (alguém precisa ter feito signup antes).
- *  - Cria Membership active direto (sem fluxo de aceitar).
- *
- * Fluxo real de convite por email vem em fatia futura quando Resend integrar.
- *
- * Usa `prismaAdmin` porque busca Account (sem RLS) E cria TenantMembership
- * (com RLS, mas precisa bypass na criação por mesmas razões do signup).
+ * Dual-path:
+ *  - Account existe → cria membership direto (status: active)
+ *  - Account não existe → cria InviteToken (7 dias), envia email
  */
 export async function addMemberAction(_prevState: unknown, formData: FormData) {
   const submission = parseWithZod(formData, { schema: addMemberInputSchema });
@@ -38,43 +39,53 @@ export async function addMemberAction(_prevState: unknown, formData: FormData) {
     });
   }
 
-  await prismaAdmin.$transaction(async (tx) => {
-    const account = await tx.account.findUnique({
-      where: { email: submission.value.email },
-      select: { id: true },
+  // Rate limit pra convites — 10/min/account.
+  const rl = await checkRateLimit({
+    key: `invite:${ctx.account.id}`,
+    limit: RATE_LIMITS.INVITE.limit,
+    windowSec: RATE_LIMITS.INVITE.windowSec,
+  });
+  if (!rl.ok) {
+    return submission.reply({
+      formErrors: [`Muitas tentativas. Aguarde ${rl.resetSec}s.`],
     });
-    if (!account) {
-      return; // silently — caller verifica via reload
-    }
+  }
 
-    // Idempotente: se já tem membership, ignora.
+  const { email, role } = submission.value;
+
+  const account = await prismaAdmin.account.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (account) {
+    // Account existe — cria membership direto.
     try {
-      const created = await tx.tenantMembership.create({
-        data: {
-          tenantId: ctx.activeTenantId,
-          accountId: account.id,
-          globalRole: submission.value.role,
-          status: "active",
-          joinedAt: new Date(),
-        },
-      });
-      await recordAuditInTx(
-        tx,
-        {
-          tenantId: ctx.activeTenantId,
-          accountId: ctx.account.id,
-          membershipId: ctx.membership.id,
-        },
-        {
-          action: "membership.add",
-          entityType: "tenant_membership",
-          entityId: created.id,
-          after: {
-            email: submission.value.email,
-            role: submission.value.role,
+      await prismaAdmin.$transaction(async (tx) => {
+        const created = await tx.tenantMembership.create({
+          data: {
+            tenantId: ctx.activeTenantId,
+            accountId: account.id,
+            globalRole: role,
+            status: "active",
+            joinedAt: new Date(),
           },
-        },
-      );
+        });
+        await recordAuditInTx(
+          tx,
+          {
+            tenantId: ctx.activeTenantId,
+            accountId: ctx.account.id,
+            membershipId: ctx.membership.id,
+          },
+          {
+            action: "membership.add",
+            entityType: "tenant_membership",
+            entityId: created.id,
+            after: { email, role },
+          },
+        );
+      });
     } catch (err) {
       if (
         typeof err === "object" &&
@@ -82,22 +93,47 @@ export async function addMemberAction(_prevState: unknown, formData: FormData) {
         "code" in err &&
         (err as { code: string }).code === "P2002"
       ) {
-        return; // já tem membership.
+        return submission.reply({
+          formErrors: ["Esta pessoa já é membro deste tenant."],
+        });
       }
       throw err;
     }
-  });
+  } else {
+    // Account não existe — cria InviteToken e envia email.
+    const raw = generateToken();
+    const tokenHash = hashToken(raw);
+    const expiresAt = new Date(Date.now() + INVITE_TOKEN_TTL_MS);
 
-  // Verifica resultado pra dar feedback adequado:
-  const account = await prismaAdmin.account.findUnique({
-    where: { email: submission.value.email },
-    select: { id: true },
-  });
-  if (!account) {
-    return submission.reply({
-      formErrors: [
-        "Conta não encontrada. A pessoa precisa fazer signup primeiro com este email; depois você pode adicioná-la.",
-      ],
+    const tenant = await prismaAdmin.tenant.findUniqueOrThrow({
+      where: { id: ctx.activeTenantId },
+      select: { nomeFantasia: true },
+    });
+
+    await prismaAdmin.inviteToken.create({
+      data: {
+        tenantId: ctx.activeTenantId,
+        email,
+        role,
+        invitedById: ctx.account.id,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const acceptUrl = `${appUrl}/invite/${encodeURIComponent(raw)}`;
+
+    void sendEmail({
+      to: email,
+      subject: `Convite para ${tenant.nomeFantasia} — telefonia.ia`,
+      react: InviteMemberEmail({
+        inviterName: ctx.account.name,
+        tenantName: tenant.nomeFantasia,
+        role: ROLE_LABEL[role] ?? role,
+        acceptUrl,
+      }),
+      tags: [{ name: "category", value: "invite" }],
     });
   }
 

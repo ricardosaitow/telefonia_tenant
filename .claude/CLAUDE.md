@@ -1,5 +1,9 @@
 # telefonia_tenant (portal) — Claude Code project guide
 
+**IDIOMA: Responder SEMPRE em português-BR. Código, comentários e commits em inglês. Comunicação com o usuário em pt-BR.**
+
+**PROIBIDO ESPECULAR.** NUNCA usar "provavelmente", "talvez", "pode ser", "hipótese", "possivelmente", "acredito que", "suspeito que", ou qualquer palavra/expressão que indique dúvida ou incerteza. Não trabalhar com probabilidades. Antes de afirmar qualquer coisa, pesquisar até ter certeza absoluta — ler o código, rodar testes, debugar, rastrear o fluxo completo. Se não sabe, pesquisa até saber. Gastar quantos tokens forem necessários. Só apresentar fatos confirmados.
+
 Portal SaaS multi-tenant em Next.js. Control plane da plataforma telefonia-ia: aqui o cliente final configura agentes, departamentos, conhecimento, integrações, ramais, etc.
 
 **Repo irmão:** `/root/telefonia-ia/` é o **data plane** (bridge-ia, wa-bridge, freepbx, mailer, scripts) + **specs canônicos da plataforma**. SEMPRE consultar lá pra modelo de dados, segurança e ADRs cross-repo. Não duplicar.

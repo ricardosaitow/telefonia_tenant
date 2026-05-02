@@ -5,18 +5,24 @@ import { auth } from "@/lib/auth/config";
 
 import { SignupForm } from "./signup-form";
 
-export default async function SignupPage() {
+type SignupPageProps = {
+  searchParams: Promise<{ next?: string }>;
+};
+
+export default async function SignupPage({ searchParams }: SignupPageProps) {
   const session = await auth();
   if (session?.user) {
     redirect("/tenants");
   }
+
+  const { next } = await searchParams;
 
   return (
     <Card variant="solid" padding="lg" className="w-full gap-6">
       <CardHeader>
         <CardTitle>Criar conta</CardTitle>
       </CardHeader>
-      <SignupForm />
+      <SignupForm next={next} />
     </Card>
   );
 }

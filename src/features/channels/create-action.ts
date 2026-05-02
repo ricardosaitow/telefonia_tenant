@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { Prisma } from "@/generated/prisma/client";
 import { recordAuditInTx } from "@/lib/audit/record";
+import { encryptCredential, isEncryptionConfigured } from "@/lib/crypto/channel-credentials";
 import { withTenantContext } from "@/lib/db/tenant-context";
 import { createGateway } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
@@ -25,6 +26,16 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
   const v = submission.value;
   const isVoice = v.tipo === "voice_did";
   const isWhatsApp = v.tipo === "whatsapp";
+  const isEmail = v.tipo === "email";
+
+  // Email: require encryption key
+  if (isEmail && !isEncryptionConfigured()) {
+    return submission.reply({
+      formErrors: [
+        "Chave de criptografia não configurada (CHANNEL_ENCRYPTION_KEY). Contate o administrador do sistema.",
+      ],
+    });
+  }
 
   // For voice_did: validate tenant has PBX before creating channel
   let tenantPbx: { pbxDomainUuid: string; slug: string } | null = null;
@@ -68,6 +79,21 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
                 sipRegister: v.sipRegister ?? true,
               }
             : {}),
+          ...(isEmail
+            ? {
+                smtpHost: v.smtpHost,
+                smtpPort: v.smtpPort ?? 587,
+                smtpUser: v.smtpUser,
+                smtpPassEnc: v.smtpPass ? encryptCredential(v.smtpPass) : null,
+                smtpSecurity: v.smtpSecurity ?? "tls",
+                inboundProto: v.inboundProto ?? "imap",
+                inboundHost: v.inboundHost,
+                inboundPort: v.inboundPort ?? (v.inboundProto === "pop3" ? 995 : 993),
+                inboundUser: v.inboundUser,
+                inboundPassEnc: v.inboundPass ? encryptCredential(v.inboundPass) : null,
+                inboundSecurity: v.inboundSecurity ?? "tls",
+              }
+            : {}),
           // WhatsApp: waBridgeUrl + waContainerName filled after provisioning
         },
       });
@@ -82,7 +108,12 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
           action: "channel.create",
           entityType: "channel",
           entityId: channel.id,
-          after: { ...channel, sipPassword: channel.sipPassword ? "***" : undefined },
+          after: {
+            ...channel,
+            sipPassword: channel.sipPassword ? "***" : undefined,
+            smtpPassEnc: channel.smtpPassEnc ? "***" : undefined,
+            inboundPassEnc: channel.inboundPassEnc ? "***" : undefined,
+          },
         },
       );
       return channel.id;

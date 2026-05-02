@@ -3,8 +3,9 @@
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useCallback, useState } from "react";
 
+import { FieldTooltip } from "@/components/composed/field-tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +39,52 @@ const SIP_TRANSPORT_OPTIONS = [
   { value: "tls", label: "TLS" },
 ] as const;
 
+const SECURITY_OPTIONS = [
+  { value: "tls", label: "TLS (SSL)" },
+  { value: "starttls", label: "STARTTLS" },
+  { value: "none", label: "Nenhuma" },
+] as const;
+
+const INBOUND_PROTO_OPTIONS = [
+  { value: "imap", label: "IMAP" },
+  { value: "pop3", label: "POP3" },
+] as const;
+
+// Provider hints: auto-fill host/port when user types known email domain
+type ProviderHint = {
+  smtpHost: string;
+  smtpPort: number;
+  imapHost: string;
+  imapPort: number;
+};
+
+const PROVIDER_HINTS: Record<string, ProviderHint> = {
+  "gmail.com": {
+    smtpHost: "smtp.gmail.com",
+    smtpPort: 587,
+    imapHost: "imap.gmail.com",
+    imapPort: 993,
+  },
+  "outlook.com": {
+    smtpHost: "smtp.office365.com",
+    smtpPort: 587,
+    imapHost: "outlook.office365.com",
+    imapPort: 993,
+  },
+  "hotmail.com": {
+    smtpHost: "smtp.office365.com",
+    smtpPort: 587,
+    imapHost: "outlook.office365.com",
+    imapPort: 993,
+  },
+  "yahoo.com": {
+    smtpHost: "smtp.mail.yahoo.com",
+    smtpPort: 587,
+    imapHost: "imap.mail.yahoo.com",
+    imapPort: 993,
+  },
+};
+
 type ChannelFormProps = {
   mode: "create" | "edit";
   defaultValues?: {
@@ -51,6 +98,15 @@ type ChannelFormProps = {
     sipUsername?: string | null;
     sipRegister?: boolean | null;
     pbxGatewayUuid?: string | null;
+    smtpHost?: string | null;
+    smtpPort?: number | null;
+    smtpUser?: string | null;
+    smtpSecurity?: string | null;
+    inboundProto?: string | null;
+    inboundHost?: string | null;
+    inboundPort?: number | null;
+    inboundUser?: string | null;
+    inboundSecurity?: string | null;
   };
 };
 
@@ -74,8 +130,28 @@ export function ChannelForm({ mode, defaultValues }: ChannelFormProps) {
           sipUsername: defaultValues.sipUsername ?? "",
           sipPassword: "",
           sipRegister: defaultValues.sipRegister ?? true,
+          smtpHost: defaultValues.smtpHost ?? "",
+          smtpPort: defaultValues.smtpPort ?? 587,
+          smtpUser: defaultValues.smtpUser ?? "",
+          smtpPass: "",
+          smtpSecurity: defaultValues.smtpSecurity ?? "tls",
+          inboundProto: defaultValues.inboundProto ?? "imap",
+          inboundHost: defaultValues.inboundHost ?? "",
+          inboundPort: defaultValues.inboundPort ?? 993,
+          inboundUser: defaultValues.inboundUser ?? "",
+          inboundPass: "",
+          inboundSecurity: defaultValues.inboundSecurity ?? "tls",
         }
-      : { sipPort: 5060, sipTransport: "udp", sipRegister: true },
+      : {
+          sipPort: 5060,
+          sipTransport: "udp",
+          sipRegister: true,
+          smtpPort: 587,
+          smtpSecurity: "tls",
+          inboundProto: "imap",
+          inboundPort: 993,
+          inboundSecurity: "tls",
+        },
     onValidate({ formData }) {
       return parseWithZod(formData, { schema });
     },
@@ -84,8 +160,23 @@ export function ChannelForm({ mode, defaultValues }: ChannelFormProps) {
   });
 
   const showSip = selectedTipo === "voice_did";
+  const showEmail = selectedTipo === "email";
   const showIdentificador = selectedTipo !== "whatsapp";
   const hasExistingGateway = mode === "edit" && !!defaultValues?.pbxGatewayUuid;
+  const hasExistingEmailConfig = mode === "edit" && !!defaultValues?.smtpHost;
+
+  // Provider hint detection from identificador
+  const [providerHint, setProviderHint] = useState<ProviderHint | null>(null);
+
+  const handleIdentificadorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const domain = val.split("@")[1]?.toLowerCase();
+    if (domain && PROVIDER_HINTS[domain]) {
+      setProviderHint(PROVIDER_HINTS[domain]);
+    } else {
+      setProviderHint(null);
+    }
+  }, []);
 
   return (
     <form {...getFormProps(form)} action={formAction} className="flex flex-col gap-5">
@@ -133,6 +224,7 @@ export function ChannelForm({ mode, defaultValues }: ChannelFormProps) {
             key={fields.identificador.key}
             autoComplete="off"
             required
+            onChange={showEmail ? handleIdentificadorChange : undefined}
           />
           <p className="text-muted-foreground text-xs">
             {selectedTipo && selectedTipo in TYPE_HINTS
@@ -274,6 +366,254 @@ export function ChannelForm({ mode, defaultValues }: ChannelFormProps) {
               ) : null}
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {/* Email section — SMTP + Inbound (IMAP/POP3) */}
+      {showEmail ? (
+        <div
+          key={`email-${selectedTipo}`}
+          className="border-border bg-surface-1 flex flex-col gap-5 rounded-lg border p-4"
+        >
+          <div>
+            <h3 className="font-display text-foreground text-sm font-semibold">
+              Configuração de Email
+            </h3>
+            <p className="text-muted-foreground text-xs">
+              Configure os servidores de envio (SMTP) e recebimento (IMAP/POP3).
+            </p>
+          </div>
+
+          {providerHint && mode === "create" ? (
+            <div className="bg-accent/10 border-accent/20 rounded-md border p-3">
+              <p className="text-accent-light text-xs">
+                Detectamos seu provedor. Campos de servidor e porta foram sugeridos automaticamente.
+              </p>
+            </div>
+          ) : null}
+
+          {/* SMTP (Outbound) */}
+          <div className="flex flex-col gap-4">
+            <h4 className="text-foreground text-xs font-semibold tracking-wide uppercase">
+              SMTP (Envio)
+            </h4>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-2 sm:col-span-1">
+                <Label htmlFor={fields.smtpHost.id} className="flex items-center gap-1.5">
+                  Servidor SMTP
+                  <FieldTooltip text="Endereço do servidor de envio. Ex: smtp.gmail.com, smtp.office365.com" />
+                </Label>
+                <Input
+                  {...getInputProps(fields.smtpHost, { type: "text" })}
+                  key={`smtpHost-${providerHint?.smtpHost ?? ""}`}
+                  defaultValue={defaultValues?.smtpHost ?? providerHint?.smtpHost ?? ""}
+                  autoComplete="off"
+                  required
+                  placeholder="smtp.provedor.com"
+                />
+                {fields.smtpHost.errors?.length ? (
+                  <p className="text-destructive text-sm">{fields.smtpHost.errors.join(" ")}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={fields.smtpPort.id} className="flex items-center gap-1.5">
+                  Porta
+                  <FieldTooltip text="Porta do servidor SMTP. Comum: 587 (TLS/STARTTLS) ou 465 (SSL)" />
+                </Label>
+                <Input
+                  {...getInputProps(fields.smtpPort, { type: "number" })}
+                  key={`smtpPort-${providerHint?.smtpPort ?? ""}`}
+                  defaultValue={defaultValues?.smtpPort ?? providerHint?.smtpPort ?? 587}
+                  min={1}
+                  max={65535}
+                />
+                {fields.smtpPort.errors?.length ? (
+                  <p className="text-destructive text-sm">{fields.smtpPort.errors.join(" ")}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={fields.smtpSecurity.id}>Segurança</Label>
+                <Select
+                  name={fields.smtpSecurity.name}
+                  defaultValue={defaultValues?.smtpSecurity ?? "tls"}
+                >
+                  <SelectTrigger id={fields.smtpSecurity.id}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SECURITY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={fields.smtpUser.id} className="flex items-center gap-1.5">
+                  Usuário
+                  <FieldTooltip text="Geralmente seu email completo" />
+                </Label>
+                <Input
+                  {...getInputProps(fields.smtpUser, { type: "text" })}
+                  key={fields.smtpUser.key}
+                  autoComplete="off"
+                  required
+                  placeholder="seu@email.com"
+                />
+                {fields.smtpUser.errors?.length ? (
+                  <p className="text-destructive text-sm">{fields.smtpUser.errors.join(" ")}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={fields.smtpPass.id}>Senha</Label>
+                <Input
+                  {...getInputProps(fields.smtpPass, { type: "password" })}
+                  key={fields.smtpPass.key}
+                  autoComplete="new-password"
+                  required={mode === "create"}
+                  placeholder={
+                    hasExistingEmailConfig ? "••••••••  (preencha para alterar)" : "senha"
+                  }
+                />
+                {fields.smtpPass.errors?.length ? (
+                  <p className="text-destructive text-sm">{fields.smtpPass.errors.join(" ")}</p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          {/* Inbound (IMAP/POP3) */}
+          <div className="flex flex-col gap-4">
+            <h4 className="text-foreground text-xs font-semibold tracking-wide uppercase">
+              Recebimento
+            </h4>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+              <div className="flex flex-col gap-2 sm:col-span-1">
+                <Label htmlFor={fields.inboundProto.id} className="flex items-center gap-1.5">
+                  Protocolo
+                  <FieldTooltip text="IMAP mantém emails no servidor. POP3 baixa e remove. Recomendado: IMAP" />
+                </Label>
+                <Select
+                  name={fields.inboundProto.name}
+                  defaultValue={defaultValues?.inboundProto ?? "imap"}
+                >
+                  <SelectTrigger id={fields.inboundProto.id}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INBOUND_PROTO_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:col-span-1">
+                <Label htmlFor={fields.inboundHost.id} className="flex items-center gap-1.5">
+                  Servidor
+                  <FieldTooltip text="Endereço do servidor de recebimento. Ex: imap.gmail.com, pop.gmail.com" />
+                </Label>
+                <Input
+                  {...getInputProps(fields.inboundHost, { type: "text" })}
+                  key={`inboundHost-${providerHint?.imapHost ?? ""}`}
+                  defaultValue={defaultValues?.inboundHost ?? providerHint?.imapHost ?? ""}
+                  autoComplete="off"
+                  required
+                  placeholder="imap.provedor.com"
+                />
+                {fields.inboundHost.errors?.length ? (
+                  <p className="text-destructive text-sm">{fields.inboundHost.errors.join(" ")}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={fields.inboundPort.id} className="flex items-center gap-1.5">
+                  Porta
+                  <FieldTooltip text="Porta do servidor. IMAP: 993 (TLS) ou 143. POP3: 995 (TLS) ou 110" />
+                </Label>
+                <Input
+                  {...getInputProps(fields.inboundPort, { type: "number" })}
+                  key={`inboundPort-${providerHint?.imapPort ?? ""}`}
+                  defaultValue={defaultValues?.inboundPort ?? providerHint?.imapPort ?? 993}
+                  min={1}
+                  max={65535}
+                />
+                {fields.inboundPort.errors?.length ? (
+                  <p className="text-destructive text-sm">{fields.inboundPort.errors.join(" ")}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={fields.inboundSecurity.id}>Segurança</Label>
+                <Select
+                  name={fields.inboundSecurity.name}
+                  defaultValue={defaultValues?.inboundSecurity ?? "tls"}
+                >
+                  <SelectTrigger id={fields.inboundSecurity.id}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SECURITY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={fields.inboundUser.id} className="flex items-center gap-1.5">
+                  Usuário
+                  <FieldTooltip text="Geralmente seu email completo" />
+                </Label>
+                <Input
+                  {...getInputProps(fields.inboundUser, { type: "text" })}
+                  key={fields.inboundUser.key}
+                  autoComplete="off"
+                  required
+                  placeholder="seu@email.com"
+                />
+                {fields.inboundUser.errors?.length ? (
+                  <p className="text-destructive text-sm">{fields.inboundUser.errors.join(" ")}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={fields.inboundPass.id}>Senha</Label>
+                <Input
+                  {...getInputProps(fields.inboundPass, { type: "password" })}
+                  key={fields.inboundPass.key}
+                  autoComplete="new-password"
+                  required={mode === "create"}
+                  placeholder={
+                    hasExistingEmailConfig ? "••••••••  (preencha para alterar)" : "senha"
+                  }
+                />
+                {fields.inboundPass.errors?.length ? (
+                  <p className="text-destructive text-sm">{fields.inboundPass.errors.join(" ")}</p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-muted-foreground text-xs">
+            Essas informações estão disponíveis nas configurações do seu provedor de email (Gmail,
+            Outlook, etc). Procure por &quot;configurações SMTP/IMAP&quot; no painel do provedor.
+          </p>
         </div>
       ) : null}
 

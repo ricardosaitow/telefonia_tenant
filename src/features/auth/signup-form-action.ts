@@ -92,5 +92,11 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
     throw err;
   }
 
-  redirect("/login?signup=ok");
+  // Preservar redirect `next` pra fluxos como aceitar convite.
+  const next = formData.get("next");
+  const loginRedirect =
+    typeof next === "string" && next.startsWith("/")
+      ? `/login?signup=ok&next=${encodeURIComponent(next)}`
+      : "/login?signup=ok";
+  redirect(loginRedirect);
 }

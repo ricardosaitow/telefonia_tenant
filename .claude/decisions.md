@@ -131,6 +131,45 @@ Formato fixo: ID, título, data, status, decisão, rationale, alternativas rejei
 
 ---
 
+## P006 — Canal email usa SMTP/IMAP/POP3 configurado pelo tenant + webmail integrado (2026-05-02)
+
+**Status:** DECIDED
+**Decisão:** Canal de email para atendimento (conversas) usa SMTP outbound + IMAP/POP3 inbound configurados pelo tenant, em vez de Resend inbound webhook. Webmail integrado no portal (módulo "Email" no sidebar). Transacional (reset senha, convite, welcome) continua usando Resend.
+**Rationale:** Resend inbound exige MX/SPF/DKIM no dashboard Resend — impraticável para tenants sem conhecimento de DNS. SMTP/IMAP/POP3 são configurados pelo tenant com campos familiares (servidor, porta, usuário, senha) e provider hints auto-preenchem para Gmail/Outlook/Yahoo. Webmail dá ao operador controle direto da caixa de email sem sair do portal.
+**Alternativas rejeitadas:**
+- Manter Resend para inbound: UX ruim para tenants; requer DNS config manual.
+- Mailgun/SendGrid inbound: mesma complexidade DNS.
+- Só SMTP sem webmail: operador não visualiza inbox, perde contexto.
+**Impacto:**
+- Credenciais SMTP/IMAP/POP3: AES-256-GCM em DB (via `CHANNEL_ENCRYPTION_KEY`). Migração para Infisical planejada (D009 aplica quando dynamic tenant secrets virar necessidade).
+- Channel model: 14 campos novos (smtp_*, inbound_*, last_poll_*).
+- 3 novos models tenant-scoped com RLS: EmailFolder, EmailMessage, EmailAttachment.
+- Resend webhook removido (route + lib). svix removido do projeto.
+- Cron route `/api/cron/email-poll` para polling periódico.
+- Webmail UI: three-panel (pastas | lista | detalhe) em `/email`.
+- Permissões: `email:view`, `email:send` adicionadas à RBAC matrix.
+- Rate limits: `TEST_CONNECTION` (5/min), `EMAIL_SEND` (30/min).
+
+---
+
+## P007 — Assinatura de email block-based, per-user, server-injected (2026-05-02)
+
+**Status:** DECIDED
+**Decisão:** Assinatura de email implementada como editor block-based (foto, info, contato, social, banner, divisor) com renderização server-side para HTML de tabelas com inline styles. Modelo 1:1 com `TenantMembership` (`EmailSignature`). Injeção server-side no momento do envio (padrão Exclaimer/CodeTwo): assinatura completa em new/forward, compacta ("-- nome") em reply.
+**Rationale:** Email HTML precisa de tabelas com inline styles para compatibilidade com Outlook/Gmail. Editor WYSIWYG genérico produziria HTML que quebra em clientes de email. Blocos tipados com controles específicos garantem output seguro. Server-side injection garante consistência (usuário não pode alterar/remover no cliente).
+**Alternativas rejeitadas:**
+- Editor WYSIWYG (TipTap/Slate): HTML gerado quebra em email clients.
+- Assinatura por tenant (global): não atende necessidade de assinaturas personalizadas por membro.
+- Client-side injection: inconsistente, manipulável.
+**Impacto:**
+- Model `EmailSignature` com RLS (tenant_id) + teste anti-cross-tenant.
+- Feature `src/features/email-signature/` com types, schemas, renderer, queries, save-action.
+- API routes para upload/serve de imagens de assinatura (sem auth no serve — destinatários precisam acessar).
+- Editor em `/email/signature` com preview ao vivo.
+- Integração no `POST /api/webmail/send` e compose modal.
+
+---
+
 ## Como adicionar nova ADR
 
 1. Decisão tomada no chat? Cria entrada aqui imediatamente.

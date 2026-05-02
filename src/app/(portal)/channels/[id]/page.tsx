@@ -34,10 +34,11 @@ export default async function EditChannelPage({ params }: EditChannelPageProps) 
   const provisioningError = parseProvisioningMetadata(channel.provisioningMetadata);
 
   const isWa = channel.tipo === "whatsapp";
+  const isEmail = channel.tipo === "email";
   const isWaProvisioning = isWa && channel.status === "provisioning";
   const isWaActive = isWa && channel.status === "active";
   const isWaError = isWa && channel.status === "error";
-  const isSipError = !isWa && channel.status === "error";
+  const isSipError = !isWa && !isEmail && channel.status === "error";
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8">
@@ -117,6 +118,38 @@ export default async function EditChannelPage({ params }: EditChannelPageProps) 
         </Card>
       )}
 
+      {/* Email status card */}
+      {isEmail && channel.smtpHost && (
+        <Card variant="solid" padding="default">
+          <div className="flex flex-col gap-2">
+            <h3 className="text-foreground text-sm font-semibold">Status do canal de email</h3>
+            <div className="text-muted-foreground grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+              <div>
+                <span className="text-foreground font-medium">SMTP:</span> {channel.smtpHost}:
+                {channel.smtpPort} ({channel.smtpSecurity ?? "tls"})
+              </div>
+              <div>
+                <span className="text-foreground font-medium">
+                  {(channel.inboundProto ?? "imap").toUpperCase()}:
+                </span>{" "}
+                {channel.inboundHost}:{channel.inboundPort} ({channel.inboundSecurity ?? "tls"})
+              </div>
+              <div>
+                <span className="text-foreground font-medium">Último poll:</span>{" "}
+                {channel.lastPollAt
+                  ? new Date(channel.lastPollAt).toLocaleString("pt-BR")
+                  : "Nunca"}
+              </div>
+              {channel.lastPollError ? (
+                <div className="text-destructive">
+                  <span className="font-medium">Erro:</span> {channel.lastPollError}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Edit form (skip for WA provisioning — user just needs to scan QR) */}
       {!isWaProvisioning && (
         <Card variant="solid" padding="lg">
@@ -133,6 +166,15 @@ export default async function EditChannelPage({ params }: EditChannelPageProps) 
               sipUsername: channel.sipUsername,
               sipRegister: channel.sipRegister,
               pbxGatewayUuid: channel.pbxGatewayUuid,
+              smtpHost: channel.smtpHost,
+              smtpPort: channel.smtpPort,
+              smtpUser: channel.smtpUser,
+              smtpSecurity: channel.smtpSecurity,
+              inboundProto: channel.inboundProto,
+              inboundHost: channel.inboundHost,
+              inboundPort: channel.inboundPort,
+              inboundUser: channel.inboundUser,
+              inboundSecurity: channel.inboundSecurity,
             }}
           />
         </Card>

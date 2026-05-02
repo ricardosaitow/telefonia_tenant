@@ -39,6 +39,8 @@ const nextConfig: NextConfig = {
   // Esconde o widget de dev do Next 16 (overlay do canto da tela). Erros
   // de build/runtime continuam aparecendo — só some o badge.
   devIndicators: false,
+  // Libera HMR via ngrok em dev (cross-origin bloqueado por padrão no Next 16).
+  allowedDevOrigins: ["*.ngrok-free.app"],
   experimental: {
     serverActions: {
       ...(allowedOrigins && allowedOrigins.length > 0 ? { allowedOrigins } : {}),
@@ -46,9 +48,18 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
+    // Headers security padrão sem X-Frame-Options (aplicado condicionalmente)
+    const headersWithoutXFrame = securityHeaders.filter((h) => h.key !== "X-Frame-Options");
+
     return [
+      // Rota render do webmail: SAMEORIGIN pra permitir iframe same-origin
       {
-        source: "/(.*)",
+        source: "/api/webmail/email/:path*/render",
+        headers: [...headersWithoutXFrame, { key: "X-Frame-Options", value: "SAMEORIGIN" }],
+      },
+      // Todas as outras rotas: DENY
+      {
+        source: "/((?!api/webmail/email/.*/render).*)",
         headers: securityHeaders,
       },
     ];

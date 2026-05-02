@@ -31,10 +31,9 @@ export function buildCsp(nonce: string, isDev: boolean): string {
   const directives = [
     `default-src 'self'`,
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
-    // style-src: nonce em prod; em dev libera unsafe-inline pro Tailwind
-    // dev mode + HMR. Browsers ignoram unsafe-inline quando há nonce, então
-    // poderíamos manter sempre — mas explicitar é mais legível.
-    `style-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-inline'" : ""}`,
+    // style-src: em dev usa unsafe-inline (sem nonce, senão browser ignora
+    // unsafe-inline). Em prod usa nonce-only.
+    isDev ? `style-src 'self' 'unsafe-inline'` : `style-src 'self' 'nonce-${nonce}'`,
     `img-src 'self' data: blob:`,
     `font-src 'self' data:`,
     `connect-src 'self'${isDev ? " ws: wss:" : ""}`,

@@ -24,6 +24,11 @@ import type {
   ConversationVoiceData,
   ConversationWhatsappData,
   Department,
+  EmailAttachment,
+  EmailFolder,
+  EmailFolderType,
+  EmailMessage,
+  EmailSignature,
   Extension,
   KnowledgeSource,
   MessageTemplate,
@@ -523,6 +528,108 @@ export async function makeTurn(input: MakeTurnInput): Promise<Turn> {
         tenantId: input.tenantId,
         speaker: input.speaker ?? "customer",
         contentText: input.contentText ?? "Hello",
+      },
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Webmail: EmailFolder, EmailMessage, EmailAttachment
+// ---------------------------------------------------------------------------
+
+export interface MakeEmailFolderInput {
+  tenantId: string;
+  channelId: string;
+  tipo?: EmailFolderType;
+  nome?: string;
+}
+
+export async function makeEmailFolder(input: MakeEmailFolderInput): Promise<EmailFolder> {
+  return asMigrator((tx) =>
+    tx.emailFolder.create({
+      data: {
+        tenantId: input.tenantId,
+        channelId: input.channelId,
+        tipo: input.tipo ?? "inbox",
+        nome: input.nome ?? "Inbox",
+      },
+    }),
+  );
+}
+
+export interface MakeEmailMessageInput {
+  tenantId: string;
+  channelId: string;
+  folderId: string;
+  fromAddress?: string;
+  toAddresses?: string;
+  subject?: string;
+  messageId?: string;
+}
+
+export async function makeEmailMessage(input: MakeEmailMessageInput): Promise<EmailMessage> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.emailMessage.create({
+      data: {
+        tenantId: input.tenantId,
+        channelId: input.channelId,
+        folderId: input.folderId,
+        fromAddress: input.fromAddress ?? `sender-${id.slice(0, 8)}@test.local`,
+        toAddresses: input.toAddresses ?? '["dest@test.local"]',
+        subject: input.subject ?? `Test email ${id.slice(0, 8)}`,
+        messageId: input.messageId ?? `<${id}@test.local>`,
+      },
+    }),
+  );
+}
+
+export interface MakeEmailAttachmentInput {
+  tenantId: string;
+  emailId: string;
+  filename?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+}
+
+export async function makeEmailAttachment(
+  input: MakeEmailAttachmentInput,
+): Promise<EmailAttachment> {
+  const id = crypto.randomUUID();
+  return asMigrator((tx) =>
+    tx.emailAttachment.create({
+      data: {
+        tenantId: input.tenantId,
+        emailId: input.emailId,
+        filename: input.filename ?? `file-${id.slice(0, 8)}.pdf`,
+        mimeType: input.mimeType ?? "application/pdf",
+        sizeBytes: input.sizeBytes ?? 1024,
+      },
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EmailSignature
+// ---------------------------------------------------------------------------
+
+export interface MakeEmailSignatureInput {
+  tenantId: string;
+  membershipId: string;
+  config?: Record<string, unknown>;
+  cachedHtml?: string;
+  cachedText?: string;
+}
+
+export async function makeEmailSignature(input: MakeEmailSignatureInput): Promise<EmailSignature> {
+  return asMigrator((tx) =>
+    tx.emailSignature.create({
+      data: {
+        tenantId: input.tenantId,
+        membershipId: input.membershipId,
+        config: (input.config ?? {}) as never,
+        cachedHtml: input.cachedHtml ?? null,
+        cachedText: input.cachedText ?? null,
       },
     }),
   );

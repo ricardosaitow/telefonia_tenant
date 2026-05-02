@@ -65,5 +65,11 @@ export async function loginAction(_prevState: unknown, formData: FormData) {
     throw error;
   }
 
+  // Preservar redirect `next` pra fluxos como aceitar convite.
+  const next = formData.get("next");
+  if (typeof next === "string" && next.startsWith("/")) {
+    redirect(next);
+  }
+
   redirect("/tenants");
 }

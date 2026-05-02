@@ -21,6 +21,12 @@ export type SendEmailInput = {
   to: string | string[];
   subject: string;
   react: ReactElement;
+  /** Override do EMAIL_FROM (ex.: reply de canal). */
+  from?: string;
+  /** Reply-To header. */
+  replyTo?: string;
+  /** Headers extras — In-Reply-To, References pra threading (RFC 5322). */
+  headers?: Record<string, string>;
   /** Tags pra rastreabilidade no Resend dashboard. */
   tags?: Array<{ name: string; value: string }>;
 };
@@ -44,10 +50,12 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
 
   try {
     const { data, error } = await client.emails.send({
-      from: getEmailFrom(),
+      from: input.from ?? getEmailFrom(),
       to: input.to,
       subject: input.subject,
       react: input.react,
+      replyTo: input.replyTo,
+      headers: input.headers,
       tags: input.tags,
     });
 

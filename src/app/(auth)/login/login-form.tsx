@@ -14,9 +14,11 @@ import { signinSchema } from "@/features/auth/schemas";
 
 type LoginFormProps = {
   signupSuccess: boolean;
+  resetSuccess: boolean;
+  next?: string;
 };
 
-export function LoginForm({ signupSuccess }: LoginFormProps) {
+export function LoginForm({ signupSuccess, resetSuccess, next }: LoginFormProps) {
   const [lastResult, action, pending] = useActionState(loginAction, undefined);
 
   const [form, fields] = useForm({
@@ -36,11 +38,19 @@ export function LoginForm({ signupSuccess }: LoginFormProps) {
         </Alert>
       ) : null}
 
+      {resetSuccess ? (
+        <Alert>
+          <AlertDescription>Senha redefinida. Faça login com a nova senha.</AlertDescription>
+        </Alert>
+      ) : null}
+
       {form.errors?.length ? (
         <Alert variant="destructive">
           <AlertDescription>{form.errors.join(" ")}</AlertDescription>
         </Alert>
       ) : null}
+
+      {next ? <input type="hidden" name="next" value={next} /> : null}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">
@@ -58,7 +68,12 @@ export function LoginForm({ signupSuccess }: LoginFormProps) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor={fields.password.id}>Senha</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor={fields.password.id}>Senha</Label>
+            <Link href="/forgot-password" className="text-accent-light text-sm hover:underline">
+              Esqueceu a senha?
+            </Link>
+          </div>
           <Input
             {...getInputProps(fields.password, { type: "password" })}
             key={fields.password.key}
