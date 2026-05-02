@@ -38,6 +38,8 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -134,6 +136,8 @@
   --destructive-foreground: #ffffff;
   --success: oklch(0.55 0.2 145);
   --success-foreground: #ffffff;
+  --warning: oklch(0.55 0.2 85);
+  --warning-foreground: #ffffff;
   --border: var(--glass-border);
   --input: var(--glass-bg);
   --ring: var(--accent-color-base);
@@ -188,6 +192,8 @@
   --destructive-foreground: #ffffff;
   --success: oklch(0.78 0.2 145);
   --success-foreground: #050810;
+  --warning: oklch(0.75 0.15 85);
+  --warning-foreground: #050810;
   --border: var(--glass-border);
   --input: var(--glass-bg);
   --ring: var(--accent-light);
