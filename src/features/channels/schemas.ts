@@ -1,25 +1,109 @@
 import { z } from "zod";
 
 /**
- * Channel input — V1 simplificado:
+ * Channel input — V1 com SIP Trunk + WhatsApp provisioning:
  *  - tipo + identificador (DID, número WA, email, etc) + nome amigável
- *  - status fixo em "active" no create (workflow de provisioning real chega
- *    quando data plane integrar)
- *
- * Validação por tipo: regra mínima por agora; tipo-específica vai pra V1.x
- * (E.164 pra DID, WA Business format, RFC 5322 pra email, etc).
+ *  - SIP trunk fields condicionais (obrigatórios quando tipo = voice_did)
+ *  - WhatsApp: identificador auto-gerado, waBridgeUrl obrigatório
  */
 export const channelTypeSchema = z.enum(["voice_did", "whatsapp", "email", "webchat"]);
 
-export const channelInputSchema = z.object({
-  tipo: channelTypeSchema,
-  identificador: z.string().min(2).max(255).trim(),
-  nomeAmigavel: z.string().min(2).max(120).trim(),
-});
+const sipFields = {
+  sipHost: z.string().max(255).trim().optional().or(z.literal("")),
+  sipPort: z.coerce.number().int().min(1).max(65535).optional(),
+  sipTransport: z.enum(["udp", "tcp", "tls"]).optional(),
+  sipUsername: z.string().max(255).trim().optional().or(z.literal("")),
+  sipPassword: z.string().max(255).optional().or(z.literal("")),
+  sipRegister: z.coerce.boolean().optional(),
+};
 
-export const updateChannelInputSchema = channelInputSchema.extend({
-  id: z.string().uuid(),
-});
+const waFields = {
+  waBridgeUrl: z.string().url().max(500).trim().optional().or(z.literal("")),
+};
+
+function channelRefine(
+  data: {
+    tipo: string;
+    sipHost?: string;
+    sipUsername?: string;
+    sipPassword?: string;
+    waBridgeUrl?: string;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (data.tipo === "voice_did") {
+    if (!data.sipHost) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["sipHost"],
+        message: "Host SIP obrigatório para canais de voz",
+      });
+    }
+    if (!data.sipUsername) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["sipUsername"],
+        message: "Usuário SIP obrigatório para canais de voz",
+      });
+    }
+    if (!data.sipPassword) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["sipPassword"],
+        message: "Senha SIP obrigatória para canais de voz",
+      });
+    }
+  }
+  if (data.tipo === "whatsapp") {
+    if (!data.waBridgeUrl) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["waBridgeUrl"],
+        message: "URL do wa-bridge obrigatória para canais WhatsApp",
+      });
+    }
+  }
+}
+
+export const channelInputSchema = z
+  .object({
+    tipo: channelTypeSchema,
+    identificador: z.string().max(255).trim().optional().or(z.literal("")),
+    nomeAmigavel: z.string().min(2).max(120).trim(),
+    ...sipFields,
+    ...waFields,
+  })
+  .superRefine((data, ctx) => {
+    // identificador obrigatório exceto pra whatsapp (auto-gerado)
+    if (data.tipo !== "whatsapp" && (!data.identificador || data.identificador.length < 2)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["identificador"],
+        message: "Identificador obrigatório (mínimo 2 caracteres)",
+      });
+    }
+    channelRefine(data, ctx);
+  });
+
+export const updateChannelInputSchema = z
+  .object({
+    id: z.string().uuid(),
+    tipo: channelTypeSchema,
+    identificador: z.string().max(255).trim().optional().or(z.literal("")),
+    nomeAmigavel: z.string().min(2).max(120).trim(),
+    ...sipFields,
+    ...waFields,
+  })
+  .superRefine((data, ctx) => {
+    if (data.tipo !== "whatsapp" && (!data.identificador || data.identificador.length < 2)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["identificador"],
+        message: "Identificador obrigatório (mínimo 2 caracteres)",
+      });
+    }
+    channelRefine(data, ctx);
+  });
 
 export type ChannelInput = z.infer<typeof channelInputSchema>;
 export type UpdateChannelInput = z.infer<typeof updateChannelInputSchema>;

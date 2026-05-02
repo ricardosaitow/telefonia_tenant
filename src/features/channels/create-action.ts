@@ -3,8 +3,10 @@
 import { parseWithZod } from "@conform-to/zod";
 import { redirect } from "next/navigation";
 
+import { Prisma } from "@/generated/prisma/client";
 import { recordAuditInTx } from "@/lib/audit/record";
 import { withTenantContext } from "@/lib/db/tenant-context";
+import { createGateway } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 
@@ -19,15 +21,57 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
   const ctx = await assertSessionAndMembership();
   assertCan(ctx.membership.globalRole, "channel:manage");
 
+  const v = submission.value;
+  const isVoice = v.tipo === "voice_did";
+  const isWhatsApp = v.tipo === "whatsapp";
+
+  // For voice_did: validate tenant has PBX before creating channel
+  let tenantPbx: { pbxDomainUuid: string; slug: string } | null = null;
+  if (isVoice) {
+    const tenant = await withTenantContext(ctx.activeTenantId, (tx) =>
+      tx.tenant.findUnique({
+        where: { id: ctx.activeTenantId },
+        select: { pbxDomainUuid: true, slug: true },
+      }),
+    );
+
+    if (!tenant?.pbxDomainUuid) {
+      return submission.reply({
+        formErrors: ["Tenant sem PBX configurado. Contate suporte."],
+      });
+    }
+    tenantPbx = { pbxDomainUuid: tenant.pbxDomainUuid, slug: tenant.slug };
+  }
+
+  // WhatsApp: auto-generate temp identifier; will be replaced after QR scan
+  const identificador = isWhatsApp ? `wa-pending-${crypto.randomUUID()}` : v.identificador!;
+
+  // Step 1: Create channel
+  let channelId: string;
   try {
-    await withTenantContext(ctx.activeTenantId, async (tx) => {
+    channelId = await withTenantContext(ctx.activeTenantId, async (tx) => {
       const channel = await tx.channel.create({
         data: {
           tenantId: ctx.activeTenantId,
-          tipo: submission.value.tipo,
-          identificador: submission.value.identificador,
-          nomeAmigavel: submission.value.nomeAmigavel,
-          // status default = "active" (workflow real vem depois).
+          tipo: v.tipo,
+          identificador,
+          nomeAmigavel: v.nomeAmigavel,
+          status: isVoice || isWhatsApp ? "provisioning" : "active",
+          ...(isVoice
+            ? {
+                sipHost: v.sipHost,
+                sipPort: v.sipPort ?? 5060,
+                sipTransport: v.sipTransport ?? "udp",
+                sipUsername: v.sipUsername,
+                sipPassword: v.sipPassword,
+                sipRegister: v.sipRegister ?? true,
+              }
+            : {}),
+          ...(isWhatsApp
+            ? {
+                waBridgeUrl: v.waBridgeUrl,
+              }
+            : {}),
         },
       });
       await recordAuditInTx(
@@ -41,9 +85,10 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
           action: "channel.create",
           entityType: "channel",
           entityId: channel.id,
-          after: channel,
+          after: { ...channel, sipPassword: channel.sipPassword ? "***" : undefined },
         },
       );
+      return channel.id;
     });
   } catch (err) {
     if (
@@ -59,5 +104,52 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
     throw err;
   }
 
+  // Step 2: For voice_did, provision SIP gateway then update channel status
+  if (isVoice && tenantPbx) {
+    try {
+      const result = await createGateway({
+        domainUuid: tenantPbx.pbxDomainUuid,
+        gatewayName: v.nomeAmigavel,
+        sipHost: v.sipHost!,
+        sipPort: v.sipPort ?? 5060,
+        sipTransport: v.sipTransport ?? "udp",
+        username: v.sipUsername!,
+        password: v.sipPassword!,
+        register: v.sipRegister ?? true,
+        context: `${tenantPbx.slug}.local`,
+      });
+
+      await withTenantContext(ctx.activeTenantId, (tx) =>
+        tx.channel.update({
+          where: { id: channelId },
+          data: {
+            status: "active",
+            pbxGatewayUuid: result.gatewayUuid,
+            provisioningMetadata: Prisma.JsonNull,
+          },
+        }),
+      );
+    } catch (err) {
+      await withTenantContext(ctx.activeTenantId, (tx) =>
+        tx.channel.update({
+          where: { id: channelId },
+          data: {
+            status: "error",
+            provisioningMetadata: {
+              error:
+                err instanceof Error ? err.message : "Erro desconhecido ao provisionar gateway SIP",
+              failedAt: new Date().toISOString(),
+            },
+          },
+        }),
+      );
+    }
+  }
+
+  // WhatsApp: redirect to channel detail (user needs to see QR)
+  // Others: redirect to list
+  if (isWhatsApp) {
+    redirect(`/channels/${channelId}`);
+  }
   redirect("/channels");
 }

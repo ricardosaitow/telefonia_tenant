@@ -81,6 +81,12 @@ model Tenant {
   defaultLocale         String       @default("pt-BR") @map("default_locale")
   status                TenantStatus @default(trial)
 
+  // Plano ativo do tenant — slug de referência (constante em código, não FK).
+  // Default "demo" pra manter compatibilidade. Quando billing vier, migramos
+  // pra model Subscription (avaliação futura).
+  planSlug              String       @default("demo") @map("plan_slug")
+  trialEndsAt           DateTime?    @map("trial_ends_at") @db.Timestamptz(6)
+
   // FK pra v_domains.domain_uuid no Postgres do FusionPBX (cross-DB, sem FK
   // formal). Nullable: tenant pode existir antes da integração ser provisionada.
   // @unique evita 2 tenants apontarem pro mesmo Domain do PBX.
@@ -440,6 +446,20 @@ model Channel {
 
   // JSON livre por tipo. Validação caso-a-caso na Server Action / por tipo.
   provisioningMetadata  Json?          @map("provisioning_metadata")
+
+  // SIP Trunk config (only for voice_did)
+  sipHost               String?        @map("sip_host")
+  sipPort               Int?           @default(5060) @map("sip_port")
+  sipTransport          String?        @default("udp") @map("sip_transport")
+  sipUsername            String?        @map("sip_username")
+  sipPassword            String?        @map("sip_password")
+  sipRegister            Boolean?       @default(true) @map("sip_register")
+  pbxGatewayUuid         String?        @map("pbx_gateway_uuid") @db.Uuid
+
+  // WhatsApp fields (populated after QR scan connection)
+  waBridgeUrl           String?        @map("wa_bridge_url")
+  waWid                 String?        @map("wa_wid")        // e.g. "5511987654321@s.whatsapp.net"
+  waPushname            String?        @map("wa_pushname")   // display name do WhatsApp
 
   // Default rule pra roteamento (V1.x). Self-ref opcional via RoutingRule.
   defaultRoutingRuleId  String?        @map("default_routing_rule_id") @db.Uuid
