@@ -8,16 +8,18 @@ import { z } from "zod";
  * - Bloqueio de senhas vazadas via HaveIBeenPwned: vem em camada superior
  *   (Server Action), não no schema — depende de I/O.
  */
-export const signupSchema = z.object({
-  email: z.string().email().max(255).trim().toLowerCase(),
-  password: z.string().min(12).max(256),
-  nome: z.string().min(1).max(120).trim(),
-  // Empresa de quem está cadastrando — vira Tenant + Membership owner
-  // atomicamente no signup (D004). Em V1.x, convite pra tenant existente
-  // virá em fluxo separado.
-  nomeTenant: z.string().min(2).max(120).trim(),
-  locale: z.enum(["pt-BR", "en-US", "es-ES"]).default("pt-BR"),
-});
+export const signupSchema = z
+  .object({
+    email: z.string().email().max(255).trim().toLowerCase(),
+    password: z.string().min(12).max(256),
+    confirmPassword: z.string().min(1).max(256),
+    nome: z.string().min(1).max(120).trim(),
+    locale: z.enum(["pt-BR", "en-US", "es-ES"]).default("pt-BR"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem.",
+    path: ["confirmPassword"],
+  });
 
 export type SignupInput = z.infer<typeof signupSchema>;
 

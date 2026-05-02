@@ -2,22 +2,18 @@
 
 import { hashPassword } from "@/lib/auth/argon2";
 import { prismaAdmin } from "@/lib/db/admin-client";
-import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
 import { actionClient } from "@/lib/safe-action";
 import { recordSecurityEvent, recordSecurityEventInTx } from "@/lib/security/event";
 
 import { signupSchema } from "./schemas";
 
 /**
- * Signup — cria Account + Tenant + Membership owner ATOMICAMENTE.
+ * Signup — cria apenas Account. Tenant é criado na escolha de plano
+ * (/choose-plan) após login.
  *
- * - Account é global (D004); Tenant + Membership precisam de privilégio pra
- *   bypass RLS no INSERT. Por isso usa `prismaAdmin` — escopo restrito a este
- *   fluxo administrativo.
- * - Transação garante atomicidade.
+ * - Account é global (D004).
  * - Não retorna info que diferencie "email já existe" de outras falhas
- *   (anti-enumeration). P2002 → silently ok, NENHUM tenant é criado pra email
- *   duplicado (a transação já abortou).
+ *   (anti-enumeration). P2002 → silently ok.
  *
  * Não faz auto-login. Após signup, redireciona pra /login (em signupFormAction).
  *
@@ -38,18 +34,12 @@ export const signupAction = actionClient
             locale: parsedInput.locale,
           },
         });
-        const tenant = await createTenantWithOwnerInTx(tx, {
-          accountId: account.id,
-          nomeTenant: parsedInput.nomeTenant,
-          locale: parsedInput.locale,
-        });
         await recordSecurityEventInTx(tx, {
           severity: "info",
           category: "authn",
           eventType: "signup_success",
           accountId: account.id,
-          tenantId: tenant.id,
-          metadata: { email: parsedInput.email, tenantName: parsedInput.nomeTenant },
+          metadata: { email: parsedInput.email },
         });
       });
     } catch (err) {

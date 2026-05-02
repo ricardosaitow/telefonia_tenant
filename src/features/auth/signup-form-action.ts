@@ -7,8 +7,6 @@ import { hashPassword } from "@/lib/auth/argon2";
 import { prismaAdmin } from "@/lib/db/admin-client";
 import { sendEmail } from "@/lib/email/send";
 import { WelcomeEmail } from "@/lib/email/templates/welcome";
-import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
-import { provisionTenantPbx } from "@/lib/onboarding/provision-tenant-pbx";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getClientIp, getUserAgent } from "@/lib/security/client-info";
 import { recordSecurityEvent, recordSecurityEventInTx } from "@/lib/security/event";
@@ -16,12 +14,10 @@ import { recordSecurityEvent, recordSecurityEventInTx } from "@/lib/security/eve
 import { signupSchema } from "./schemas";
 
 /**
- * Versão Conform do signup. Mesma lógica de signupAction (criação atômica
- * Account + Tenant + Membership owner via prismaAdmin), mas no formato
- * `useActionState` + `parseWithZod`. Sucesso → redirect /login?signup=ok.
+ * Signup — cria apenas Account. Tenant é criado na escolha de plano
+ * (/choose-plan) após login.
  *
- * P2002 (email duplicado) ou outras falhas → silently redirect mesmo
- * (anti-enumeration). Toda transação aborta atomicamente; nenhum tenant órfão.
+ * P2002 (email duplicado) → silently redirect (anti-enumeration).
  */
 export async function signupFormAction(_prevState: unknown, formData: FormData) {
   const submission = parseWithZod(formData, { schema: signupSchema });
@@ -29,7 +25,6 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
     return submission.reply();
   }
 
-  // Rate limit por IP — signup é caro (cria tenant + memberhsip).
   const ip = await getClientIp();
   const ua = await getUserAgent();
   const rl = await checkRateLimit({
@@ -54,7 +49,7 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
   const passwordHash = await hashPassword(submission.value.password);
 
   try {
-    const created = await prismaAdmin.$transaction(async (tx) => {
+    await prismaAdmin.$transaction(async (tx) => {
       const account = await tx.account.create({
         data: {
           email: submission.value.email,
@@ -63,48 +58,20 @@ export async function signupFormAction(_prevState: unknown, formData: FormData) 
           locale: submission.value.locale,
         },
       });
-      const tenant = await createTenantWithOwnerInTx(tx, {
-        accountId: account.id,
-        nomeTenant: submission.value.nomeTenant,
-        locale: submission.value.locale,
-      });
       await recordSecurityEventInTx(tx, {
         severity: "info",
         category: "authn",
         eventType: "signup_success",
         accountId: account.id,
-        tenantId: tenant.id,
-        metadata: {
-          email: submission.value.email,
-          tenantName: submission.value.nomeTenant,
-        },
+        metadata: { email: submission.value.email },
       });
-      return { tenantId: tenant.id };
     });
 
-    // Welcome email — fire-and-forget (não pode bloquear redirect, e falha
-    // de mailer não pode quebrar signup que JÁ foi commitado).
     void sendEmail({
       to: submission.value.email,
       subject: "Bem-vindo à telefonia.ia",
-      react: WelcomeEmail({
-        nome: submission.value.nome,
-        tenantName: submission.value.nomeTenant,
-      }),
+      react: WelcomeEmail({ nome: submission.value.nome }),
       tags: [{ name: "category", value: "welcome" }],
-    });
-
-    // Provisiona Domain no FusionPBX — fire-and-forget pelo mesmo motivo do
-    // welcome email: PBX fora do ar não pode bloquear signup que já comitou.
-    // Falha aqui deixa Tenant.pbxDomainUuid=null; UI de /extensions mostra
-    // empty state "Domain não provisionado". `provisionTenantPbx` é
-    // idempotente, então retentativa via job ou admin tool resolve.
-    void provisionTenantPbx(created.tenantId).catch((err) => {
-      console.error(
-        "[signup] provision PBX falhou pra tenant %s — pbxDomainUuid fica null:",
-        created.tenantId,
-        err,
-      );
     });
   } catch (err) {
     if (

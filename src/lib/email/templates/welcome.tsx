@@ -22,10 +22,9 @@ import {
 
 type Props = {
   nome: string;
-  tenantName: string;
 };
 
-export function WelcomeEmail({ nome, tenantName }: Props) {
+export function WelcomeEmail({ nome }: Props) {
   return (
     <Html lang="pt-BR">
       <Head />
@@ -35,9 +34,8 @@ export function WelcomeEmail({ nome, tenantName }: Props) {
           <Heading style={heading}>Bem-vindo, {nome}.</Heading>
 
           <Text style={paragraph}>
-            Sua conta foi criada e o tenant <strong>{tenantName}</strong> está pronto. Você já pode
-            entrar pelo portal e começar a configurar departamentos, agentes, canais e bases de
-            conhecimento.
+            Sua conta foi criada. Escolha um plano para começar a configurar departamentos, agentes,
+            canais e bases de conhecimento.
           </Text>
 
           <Section style={ctaSection}>

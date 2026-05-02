@@ -5,6 +5,8 @@ export type CreateTenantWithOwnerInput = {
   accountId: string;
   nomeTenant: string;
   locale?: string | undefined;
+  planSlug?: string | undefined;
+  trialEndsAt?: Date | undefined;
 };
 
 /**
@@ -27,6 +29,8 @@ export async function createTenantWithOwnerInTx(
       nomeFantasia: input.nomeTenant,
       defaultLocale: input.locale ?? "pt-BR",
       status: "trial",
+      planSlug: input.planSlug ?? "demo",
+      trialEndsAt: input.trialEndsAt ?? null,
     },
   });
 
