@@ -458,6 +458,7 @@ model Channel {
 
   // WhatsApp fields (populated after QR scan connection)
   waBridgeUrl           String?        @map("wa_bridge_url")
+  waContainerName       String?        @map("wa_container_name")
   waWid                 String?        @map("wa_wid")        // e.g. "5511987654321@s.whatsapp.net"
   waPushname            String?        @map("wa_pushname")   // display name do WhatsApp
 

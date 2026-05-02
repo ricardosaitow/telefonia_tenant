@@ -51,7 +51,6 @@ type ChannelFormProps = {
     sipUsername?: string | null;
     sipRegister?: boolean | null;
     pbxGatewayUuid?: string | null;
-    waBridgeUrl?: string | null;
   };
 };
 
@@ -75,7 +74,6 @@ export function ChannelForm({ mode, defaultValues }: ChannelFormProps) {
           sipUsername: defaultValues.sipUsername ?? "",
           sipPassword: "",
           sipRegister: defaultValues.sipRegister ?? true,
-          waBridgeUrl: defaultValues.waBridgeUrl ?? "",
         }
       : { sipPort: 5060, sipTransport: "udp", sipRegister: true },
     onValidate({ formData }) {
@@ -86,7 +84,6 @@ export function ChannelForm({ mode, defaultValues }: ChannelFormProps) {
   });
 
   const showSip = selectedTipo === "voice_did";
-  const showWa = selectedTipo === "whatsapp";
   const showIdentificador = selectedTipo !== "whatsapp";
   const hasExistingGateway = mode === "edit" && !!defaultValues?.pbxGatewayUuid;
 
@@ -161,36 +158,6 @@ export function ChannelForm({ mode, defaultValues }: ChannelFormProps) {
           <p className="text-destructive text-sm">{fields.nomeAmigavel.errors.join(" ")}</p>
         ) : null}
       </div>
-
-      {/* WhatsApp section — wa-bridge URL */}
-      {showWa ? (
-        <div
-          key={`wa-${selectedTipo}`}
-          className="border-border bg-surface-1 flex flex-col gap-4 rounded-lg border p-4"
-        >
-          <div>
-            <h3 className="font-display text-foreground text-sm font-semibold">Conexão WhatsApp</h3>
-            <p className="text-muted-foreground text-xs">
-              Informe a URL do wa-bridge. Após criar o canal, você escaneará o QR code para
-              conectar.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={fields.waBridgeUrl.id}>URL do wa-bridge</Label>
-            <Input
-              {...getInputProps(fields.waBridgeUrl, { type: "url" })}
-              key={fields.waBridgeUrl.key}
-              autoComplete="off"
-              required
-              placeholder="http://localhost:9090"
-            />
-            {fields.waBridgeUrl.errors?.length ? (
-              <p className="text-destructive text-sm">{fields.waBridgeUrl.errors.join(" ")}</p>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
 
       {/* SIP Trunk section — only for voice_did */}
       {showSip ? (

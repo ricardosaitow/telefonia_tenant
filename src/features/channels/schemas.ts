@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 /**
- * Channel input — V1 com SIP Trunk + WhatsApp provisioning:
+ * Channel input — V1 com SIP Trunk + WhatsApp auto-provisioning:
  *  - tipo + identificador (DID, número WA, email, etc) + nome amigável
  *  - SIP trunk fields condicionais (obrigatórios quando tipo = voice_did)
- *  - WhatsApp: identificador auto-gerado, waBridgeUrl obrigatório
+ *  - WhatsApp: identificador auto-gerado, container provisionado automaticamente
  */
 export const channelTypeSchema = z.enum(["voice_did", "whatsapp", "email", "webchat"]);
 
@@ -17,9 +17,7 @@ const sipFields = {
   sipRegister: z.coerce.boolean().optional(),
 };
 
-const waFields = {
-  waBridgeUrl: z.string().url().max(500).trim().optional().or(z.literal("")),
-};
+// WhatsApp: no user-facing fields — container provisioned automatically
 
 function channelRefine(
   data: {
@@ -27,7 +25,6 @@ function channelRefine(
     sipHost?: string;
     sipUsername?: string;
     sipPassword?: string;
-    waBridgeUrl?: string;
   },
   ctx: z.RefinementCtx,
 ) {
@@ -54,15 +51,6 @@ function channelRefine(
       });
     }
   }
-  if (data.tipo === "whatsapp") {
-    if (!data.waBridgeUrl) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["waBridgeUrl"],
-        message: "URL do wa-bridge obrigatória para canais WhatsApp",
-      });
-    }
-  }
 }
 
 export const channelInputSchema = z
@@ -71,7 +59,6 @@ export const channelInputSchema = z
     identificador: z.string().max(255).trim().optional().or(z.literal("")),
     nomeAmigavel: z.string().min(2).max(120).trim(),
     ...sipFields,
-    ...waFields,
   })
   .superRefine((data, ctx) => {
     // identificador obrigatório exceto pra whatsapp (auto-gerado)
@@ -92,7 +79,6 @@ export const updateChannelInputSchema = z
     identificador: z.string().max(255).trim().optional().or(z.literal("")),
     nomeAmigavel: z.string().min(2).max(120).trim(),
     ...sipFields,
-    ...waFields,
   })
   .superRefine((data, ctx) => {
     if (data.tipo !== "whatsapp" && (!data.identificador || data.identificador.length < 2)) {

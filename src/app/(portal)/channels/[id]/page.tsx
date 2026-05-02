@@ -133,7 +133,6 @@ export default async function EditChannelPage({ params }: EditChannelPageProps) 
               sipUsername: channel.sipUsername,
               sipRegister: channel.sipRegister,
               pbxGatewayUuid: channel.pbxGatewayUuid,
-              waBridgeUrl: channel.waBridgeUrl,
             }}
           />
         </Card>

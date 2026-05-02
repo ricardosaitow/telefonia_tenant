@@ -8,6 +8,7 @@ import { withTenantContext } from "@/lib/db/tenant-context";
 import { deleteGateway } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
+import { destroyWaBridge } from "@/lib/whatsapp/provision";
 
 const inputSchema = z.object({ id: z.string().uuid() });
 
@@ -28,6 +29,7 @@ export async function deleteChannelAction(formData: FormData) {
         nomeAmigavel: true,
         status: true,
         pbxGatewayUuid: true,
+        waContainerName: true,
       },
     });
     if (!before) return;
@@ -38,6 +40,15 @@ export async function deleteChannelAction(formData: FormData) {
         await deleteGateway(before.pbxGatewayUuid);
       } catch (err) {
         console.error("[channels] Erro ao deletar gateway SIP (best-effort):", err);
+      }
+    }
+
+    // Destroy wa-bridge container best-effort
+    if (before.waContainerName) {
+      try {
+        await destroyWaBridge(before.waContainerName);
+      } catch (err) {
+        console.error("[channels] Erro ao destruir container wa-bridge (best-effort):", err);
       }
     }
 

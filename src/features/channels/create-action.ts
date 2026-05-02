@@ -9,6 +9,7 @@ import { withTenantContext } from "@/lib/db/tenant-context";
 import { createGateway } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
+import { provisionWaBridge } from "@/lib/whatsapp/provision";
 
 import { channelInputSchema } from "./schemas";
 
@@ -67,11 +68,7 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
                 sipRegister: v.sipRegister ?? true,
               }
             : {}),
-          ...(isWhatsApp
-            ? {
-                waBridgeUrl: v.waBridgeUrl,
-              }
-            : {}),
+          // WhatsApp: waBridgeUrl + waContainerName filled after provisioning
         },
       });
       await recordAuditInTx(
@@ -138,6 +135,38 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
             provisioningMetadata: {
               error:
                 err instanceof Error ? err.message : "Erro desconhecido ao provisionar gateway SIP",
+              failedAt: new Date().toISOString(),
+            },
+          },
+        }),
+      );
+    }
+  }
+
+  // Step 3: For WhatsApp, provision wa-bridge container
+  if (isWhatsApp) {
+    try {
+      const result = await provisionWaBridge(channelId);
+
+      await withTenantContext(ctx.activeTenantId, (tx) =>
+        tx.channel.update({
+          where: { id: channelId },
+          data: {
+            waBridgeUrl: result.url,
+            waContainerName: result.containerName,
+            provisioningMetadata: Prisma.JsonNull,
+          },
+        }),
+      );
+    } catch (err) {
+      await withTenantContext(ctx.activeTenantId, (tx) =>
+        tx.channel.update({
+          where: { id: channelId },
+          data: {
+            status: "error",
+            provisioningMetadata: {
+              error:
+                err instanceof Error ? err.message : "Erro desconhecido ao provisionar wa-bridge",
               failedAt: new Date().toISOString(),
             },
           },
