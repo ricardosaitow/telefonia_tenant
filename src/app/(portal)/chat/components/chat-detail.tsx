@@ -162,7 +162,7 @@ export function ChatDetail({
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        <div className="flex flex-col gap-1">
+        <div className="flex min-h-full flex-col justify-end gap-1">
           {messages.map((msg) => (
             <MessageBubble
               key={msg.id}

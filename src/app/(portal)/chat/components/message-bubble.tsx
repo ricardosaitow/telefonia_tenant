@@ -53,7 +53,7 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
     <div className={cn("flex py-0.5", isOwn ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[70%] rounded-md px-3 py-1.5",
+          "max-w-[70%] min-w-[5rem] rounded-md px-3 py-1.5",
           isOwn
             ? "bg-primary text-primary-foreground"
             : message.fromCustomer
@@ -81,27 +81,27 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
           </div>
         )}
 
-        {/* Content */}
-        <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
+        {/* Content + inline time */}
+        <div>
+          <span className="text-sm break-words whitespace-pre-wrap">{message.content}</span>
+          <span className="float-right mt-1 ml-2 flex items-center gap-1">
+            {message.edited && <span className="text-[10px] opacity-50">editado</span>}
+            <span className="text-[10px] opacity-60">{time}</span>
+            {renderAck()}
+          </span>
+        </div>
 
-        {/* Media (placeholder for now) */}
+        {/* Media */}
         {message.mediaUrl && message.mediaMimeType?.startsWith("image/") && (
           <div className="mt-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={message.mediaUrl}
               alt={message.mediaName ?? "Image"}
-              className="max-h-60 rounded-md"
+              className="max-h-60 max-w-full rounded-md"
             />
           </div>
         )}
-
-        {/* Footer: time + ack */}
-        <div className="mt-0.5 flex items-center justify-end gap-1">
-          {message.edited && <span className="text-[10px] opacity-50">editado</span>}
-          <span className="text-[10px] opacity-60">{time}</span>
-          {renderAck()}
-        </div>
       </div>
     </div>
   );

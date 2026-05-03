@@ -346,7 +346,9 @@ export function ChatShell({
       {/* Three-panel layout — on mobile, show list XOR detail */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Chat list — hidden on mobile when a chat is selected */}
-        <div className={hasSelection ? "hidden md:flex" : "flex flex-1 md:flex-none"}>
+        <div
+          className={`overflow-hidden ${hasSelection ? "hidden md:flex" : "flex flex-1 md:flex-none"}`}
+        >
           <ChatList chats={chats} selectedChatId={selectedChatId} onSelect={handleSelectChat} />
         </div>
 

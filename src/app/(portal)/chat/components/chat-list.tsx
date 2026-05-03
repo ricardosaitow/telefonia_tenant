@@ -45,7 +45,7 @@ export function ChatList({ chats, selectedChatId, onSelect }: ChatListProps) {
   }, [chats, filterTipo, filterStatus, search]);
 
   return (
-    <div className="bg-background flex w-full shrink-0 flex-col md:w-80">
+    <div className="bg-background flex w-full shrink-0 flex-col overflow-hidden md:w-80">
       {/* Search */}
       <div className="border-divider-strong border-b p-2">
         <div className="relative">

@@ -71,7 +71,7 @@ export function MessageInput({ onSend, onSendMedia, onTyping, disabled }: Messag
   };
 
   return (
-    <div className="border-divider-strong relative border-t px-4 py-3">
+    <div className="border-divider-strong relative border-t px-4 py-2">
       {/* Quick reply picker */}
       {showQuickReply && (
         <QuickReplyPicker

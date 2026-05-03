@@ -25,14 +25,14 @@ const statusOptions: Array<{ value: ChatStatus | null; label: string }> = [
 
 export function ChatFilters({ tipo, status, onTipoChange, onStatusChange }: ChatFiltersProps) {
   return (
-    <div className="flex gap-1 px-2 pb-1">
+    <div className="flex flex-col gap-1 px-2 pb-1">
       {/* Tipo filter */}
-      <div className="flex gap-0.5">
+      <div className="scrollbar-hide flex gap-0.5 overflow-x-auto">
         {tipoOptions.map((opt) => (
           <button
             key={opt.label}
             onClick={() => onTipoChange(opt.value)}
-            className={`rounded-md px-2 py-0.5 text-[10px] transition-colors ${
+            className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] transition-colors ${
               tipo === opt.value
                 ? "bg-primary text-primary-foreground"
                 : "bg-surface-2 text-muted-foreground hover:text-foreground"
@@ -43,15 +43,13 @@ export function ChatFilters({ tipo, status, onTipoChange, onStatusChange }: Chat
         ))}
       </div>
 
-      <div className="border-divider-strong mx-1 border-l" />
-
       {/* Status filter */}
-      <div className="flex gap-0.5">
+      <div className="scrollbar-hide flex gap-0.5 overflow-x-auto">
         {statusOptions.map((opt) => (
           <button
             key={opt.label}
             onClick={() => onStatusChange(opt.value)}
-            className={`rounded-md px-2 py-0.5 text-[10px] transition-colors ${
+            className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] transition-colors ${
               status === opt.value
                 ? "bg-primary text-primary-foreground"
                 : "bg-surface-2 text-muted-foreground hover:text-foreground"
