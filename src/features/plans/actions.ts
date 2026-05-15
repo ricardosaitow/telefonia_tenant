@@ -8,7 +8,7 @@ import { listAccountMemberships, setActiveTenant } from "@/lib/auth/active-tenan
 import { prismaAdmin } from "@/lib/db/admin-client";
 import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
 import { provisionTenantPbx } from "@/lib/onboarding/provision-tenant-pbx";
-import { assertSession } from "@/lib/rbac";
+import { assertSession, getOrganizationIds } from "@/lib/rbac";
 
 import { PLANS } from "./constants";
 import { choosePlanSchema } from "./schemas";
@@ -29,7 +29,8 @@ export async function choosePlanAction(_prevState: unknown, formData: FormData) 
 
   const ctx = await assertSession();
 
-  const memberships = await listAccountMemberships(ctx.account.id);
+  const orgIds = await getOrganizationIds();
+  const memberships = await listAccountMemberships(orgIds);
   if (memberships.length > 0) {
     redirect("/tenants");
   }
