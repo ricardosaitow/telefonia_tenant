@@ -2,11 +2,11 @@
  * CRUD de SIP Gateway (trunk) no FusionPBX.
  *
  * Um gateway = 1 trunk SIP externo (provedor VoIP). Gravado em
- * `v_sip_gateways` vinculado ao domain do tenant. Após INSERT/UPDATE/DELETE,
+ * `v_gateways` vinculado ao domain do tenant. Após INSERT/UPDATE/DELETE,
  * `reloadXml()` é chamado best-effort (mesmo padrão de domains.ts e
  * extensions.ts).
  *
- * Senha SIP fica em claro em `v_sip_gateways.password` — FusionPBX usa pra
+ * Senha SIP fica em claro em `v_gateways.password` — FusionPBX usa pra
  * digest auth SIP (não suporta hash). Portal também persiste cópia no campo
  * `channels.sip_password` pra exibir ao user.
  */
@@ -40,8 +40,8 @@ export async function createGateway(input: CreateGatewayInput): Promise<CreateGa
   const proxy = input.sipPort === 5060 ? input.sipHost : `${input.sipHost}:${input.sipPort}`;
 
   await fusionpbxPool.query(
-    `INSERT INTO v_sip_gateways (
-      sip_gateway_uuid, domain_uuid,
+    `INSERT INTO v_gateways (
+      gateway_uuid, domain_uuid,
       gateway, proxy, realm,
       username, password,
       register, register_transport,
@@ -97,13 +97,13 @@ export async function updateGateway(gatewayUuid: string, input: UpdateGatewayInp
   const proxy = input.sipPort === 5060 ? input.sipHost : `${input.sipHost}:${input.sipPort}`;
 
   await fusionpbxPool.query(
-    `UPDATE v_sip_gateways SET
+    `UPDATE v_gateways SET
       gateway = $2,
       proxy = $3, realm = $4,
       username = $5, password = $6,
       register = $7, register_transport = $8,
       update_date = now()
-    WHERE sip_gateway_uuid = $1`,
+    WHERE gateway_uuid = $1`,
     [
       gatewayUuid,
       input.gatewayName,
@@ -125,9 +125,7 @@ export async function updateGateway(gatewayUuid: string, input: UpdateGatewayInp
  * Apaga gateway. Idempotente: silencia "gateway não existe".
  */
 export async function deleteGateway(gatewayUuid: string): Promise<void> {
-  await fusionpbxPool.query("DELETE FROM v_sip_gateways WHERE sip_gateway_uuid = $1", [
-    gatewayUuid,
-  ]);
+  await fusionpbxPool.query("DELETE FROM v_gateways WHERE gateway_uuid = $1", [gatewayUuid]);
 
   void reloadXml().catch((err) => {
     console.error("[fusionpbx] reloadxml falhou (best-effort):", err);

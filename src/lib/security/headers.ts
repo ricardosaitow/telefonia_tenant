@@ -28,9 +28,16 @@ export function generateNonce(): string {
  * `connect-src` libera ws/wss em dev pra HMR socket do Next.
  */
 export function buildCsp(nonce: string, isDev: boolean): string {
+  // Em dev: CSP relaxada — Next dev/Turbopack emite scripts inline (HMR
+  // overlay, devtools, error UI) e `strict-dynamic` os bloqueia. Saímos
+  // do strict-dynamic em dev e aceitamos inline. Em prod: nonce-only.
+  const scriptSrc = isDev
+    ? `script-src 'self' 'unsafe-inline' 'unsafe-eval'`
+    : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`;
+
   const directives = [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    scriptSrc,
     // style-src: em dev usa unsafe-inline (sem nonce, senão browser ignora
     // unsafe-inline). Em prod usa nonce-only.
     isDev ? `style-src 'self' 'unsafe-inline'` : `style-src 'self' 'nonce-${nonce}'`,

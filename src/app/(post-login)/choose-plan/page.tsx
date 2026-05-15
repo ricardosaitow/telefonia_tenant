@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 
 import { listAccountMemberships } from "@/lib/auth/active-tenant";
-import { assertSession } from "@/lib/rbac";
+import { assertSession, getOrganizationIds } from "@/lib/rbac";
 
 import { ChoosePlanForm } from "./choose-plan-form";
 
 export default async function ChoosePlanPage() {
   const ctx = await assertSession();
-  const memberships = await listAccountMemberships(ctx.account.id);
+  const orgIds = await getOrganizationIds();
+  const memberships = await listAccountMemberships(orgIds);
 
   if (memberships.length > 0) {
     redirect("/tenants");

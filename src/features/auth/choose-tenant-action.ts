@@ -5,46 +5,45 @@ import { z } from "zod";
 
 import { setActiveTenant } from "@/lib/auth/active-tenant";
 import { prismaAdmin } from "@/lib/db/admin-client";
-import { assertSession } from "@/lib/rbac";
+import { assertSession, getOrganizationIds } from "@/lib/rbac";
 
 const inputSchema = z.object({
   tenantId: z.string().uuid(),
 });
 
 /**
- * Atomic: valida que o user tem membership ATIVO no tenant solicitado, então
- * seta `activeTenantId` na sessão. Redireciona pra /dashboard no fim.
+ * Fase 3 SSO: valida que o user tem membership do tenant **via claims do
+ * Logto** (claims.organizations), em vez da tabela TenantMembership que
+ * deixou de ser source of truth.
  *
- * !!! Lookup via prismaAdmin (BYPASS RLS) !!!
+ * Fluxo:
+ *  1. assertSession() — confirma sessão Logto válida
+ *  2. getOrganizationIds() — pega lista de org IDs do JWT (Logto)
+ *  3. Lookup Tenant pelo UUID submetido pelo form; checa que
+ *     Tenant.logtoOrgId está na lista de orgs do user
+ *  4. setActiveTenant — cookie escrito com o UUID
  *
- * Mesma razão de listAccountMemberships: query pré-tenant. Sem
- * `app.current_tenant`, RLS de tenant_memberships filtra fora todos os rows.
- * Fronteira de segurança: `where: { accountId, tenantId }` — accountId vem
- * de assertSession() (sessão validada).
- *
- * Se membership não existir / estiver inativo: silently redirect /tenants.
+ * Server Action: pode setar cookie (Next 16 OK).
  */
 export async function chooseTenantAction(formData: FormData) {
   const ctx = await assertSession();
+  const userOrgIds = await getOrganizationIds();
 
   const parsed = inputSchema.safeParse({ tenantId: formData.get("tenantId") });
   if (!parsed.success) redirect("/tenants");
 
-  const membership = await prismaAdmin.tenantMembership.findFirst({
-    where: {
-      accountId: ctx.account.id,
-      tenantId: parsed.data.tenantId,
-      status: "active",
-    },
-    select: { id: true },
+  const tenant = await prismaAdmin.tenant.findUnique({
+    where: { id: parsed.data.tenantId },
+    select: { id: true, logtoOrgId: true, status: true },
   });
-  if (!membership) redirect("/tenants");
+  if (!tenant?.logtoOrgId || !userOrgIds.includes(tenant.logtoOrgId)) {
+    redirect("/tenants");
+  }
+  if (tenant.status !== "active") {
+    redirect("/tenants");
+  }
 
-  await setActiveTenant(ctx.sessionToken, parsed.data.tenantId);
-  await prismaAdmin.tenantMembership.update({
-    where: { id: membership.id },
-    data: { lastActiveAt: new Date() },
-  });
+  await setActiveTenant(ctx.sessionToken, tenant.id);
 
   redirect("/dashboard");
 }

@@ -28,8 +28,16 @@ datasource db {
 // ---------------------------------------------------------------------------
 model Account {
   id                 String        @id @default(uuid(7)) @db.Uuid
+  // Fase 3 SSO Pekiart: bridge Logto user → Account local.
+  // claims.sub (string curta, ex: "rt0ibfm888xe") preenche este campo no
+  // primeiro login do user. Nullable porque accounts pré-migration podem
+  // não ter correspondência no Logto.
+  logtoSub           String?       @unique @map("logto_sub")
   email              String        @unique
-  passwordHash       String        @map("password_hash")
+  // Nullable após Fase 3: usuários autenticados via Logto não têm hash local.
+  // Autenticação real acontece no Logto IdP. Mantemos a coluna pra migration
+  // back-compat (caso reativemos Auth.js algum dia).
+  passwordHash       String?       @map("password_hash")
   nome               String
   locale             String        @default("pt-BR")
   status             AccountStatus @default(active)
@@ -75,6 +83,12 @@ enum AccountStatus {
 // ---------------------------------------------------------------------------
 model Tenant {
   id                    String       @id @default(uuid(7)) @db.Uuid
+  // ID da Organization no Logto (Fase 3 do plano SSO Pekiart). String curta
+  // (~12 chars, ex: "o49qdbq0demc"), NÃO é UUID. Nullable porque tenants
+  // criados antes da migração não têm correspondente no Logto.
+  // Lookup: assertSession resolve claims.organizations[N] → Tenant.id (UUID)
+  // via essa coluna.
+  logtoOrgId            String?      @unique @map("logto_org_id")
   slug                  String       @unique
   nomeFantasia          String       @map("nome_fantasia")
   razaoSocial           String?      @map("razao_social")

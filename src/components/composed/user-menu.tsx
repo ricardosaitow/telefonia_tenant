@@ -5,7 +5,8 @@ import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { signoutFormAction } from "@/features/auth/signout-form-action";
+// Sair agora é um link direto pro endpoint Logto sign-out (Fase 3 do plano
+// [[sso-pekiart-logto]]). A Server Action signoutFormAction foi removida.
 
 /**
  * Menu do avatar — 8c minimal. Em 8d vira Popover do Radix. Por ora:
@@ -107,15 +108,13 @@ export function UserMenu({ name, email }: UserMenuProps) {
 
           <div className="border-divider my-1 border-t" />
 
-          <form action={signoutFormAction}>
-            <button
-              type="submit"
-              role="menuitem"
-              className="hover:bg-glass-bg text-foreground w-full rounded-md px-3 py-2 text-left text-sm transition-colors"
-            >
-              Sair
-            </button>
-          </form>
+          <a
+            href="/api/logto/sign-out"
+            role="menuitem"
+            className="hover:bg-glass-bg text-foreground block w-full rounded-md px-3 py-2 text-left text-sm transition-colors"
+          >
+            Sair
+          </a>
         </div>
       ) : null}
     </div>

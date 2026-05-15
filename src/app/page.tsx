@@ -16,49 +16,20 @@ import {
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { HeroMock } from "@/components/composed/hero-mock";
 import { Button } from "@/components/ui/button";
-import { auth } from "@/lib/auth/config";
+
+import { LandingHeader } from "./landing-header";
 
 export const metadata: Metadata = {
-  title: "Pekiart telefon.ia",
+  title: "telefon.ia - Pekiart",
 };
 
 export default async function LandingPage() {
-  const session = await auth();
-  if (session?.sessionToken) {
-    redirect("/tenants");
-  }
-
   return (
     <div className="dark bg-background text-foreground flex min-h-full flex-1 flex-col overflow-x-hidden">
-      {/* HEADER */}
-      <header className="bg-background border-border sticky top-0 z-50 border-b px-4 py-4 md:px-6">
-        <div className="mx-auto flex max-w-[1240px] items-center justify-between">
-          <Link href="/" aria-label="telefon.ia" className="flex items-center gap-2.5">
-            <Image src="/brand/logo.webp" alt="" width={32} height={32} priority />
-            <span className="font-display text-foreground text-lg leading-none font-semibold tracking-tight">
-              telefon
-              <span className="bg-gradient-to-r from-[var(--brand-gradient-from)] to-[var(--brand-gradient-to)] bg-clip-text text-transparent">
-                .ia
-              </span>
-            </span>
-          </Link>
-          <nav className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/login">Entrar</Link>
-            </Button>
-            <Button asChild size="sm" className="px-3 md:px-4">
-              <Link href="/signup">
-                <span className="hidden md:inline">Registrar-se</span>
-                <span className="md:hidden">Registrar</span>
-              </Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <LandingHeader />
 
       {/* HERO — gradient vertical bg → surface-1 */}
       <div className="bg-gradient-to-b from-[var(--background)] from-0% via-[var(--surface-3)] via-40% to-[var(--surface-hero)]">
@@ -750,14 +721,14 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      {/* FOOTER */}
-      <footer className="border-border text-muted-foreground border-t text-sm">
+      {/* FOOTER — espelha o footer da landing institucional (pekiart.com.br) */}
+      <footer className="border-border bg-background border-t">
         <div className="mx-auto max-w-[1240px] px-4 md:px-6 lg:px-8">
-          <div className="grid gap-10 py-14 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
-            {/* Brand (desktop only — mobile version below copyright) */}
-            <div className="hidden flex-col gap-6 md:flex">
+          <div className="grid gap-12 py-14 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+            {/* Brand */}
+            <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <Image src="/brand/logo.webp" alt="" width={56} height={56} />
+                <Image src="/brand/logo.webp" alt="" width={56} height={56} priority />
                 <span className="font-display text-foreground text-2xl font-bold tracking-tight md:text-3xl">
                   Pek
                   <span className="bg-gradient-to-r from-[var(--brand-gradient-alt-from)] via-[var(--brand-gradient-alt-via)] to-[var(--brand-gradient-alt-to)] bg-clip-text text-transparent">
@@ -766,72 +737,149 @@ export default async function LandingPage() {
                   rt
                 </span>
               </div>
-              <span>Visão estratégica. Execução precisa.</span>
+              <p className="text-muted-foreground text-sm">Visão estratégica. Execução precisa.</p>
             </div>
 
-            {/* Produto */}
+            {/* Produtos */}
             <div className="flex flex-col gap-3">
-              <span className="text-foreground text-xs font-semibold tracking-wider uppercase">
-                Produto
+              <span className="text-foreground text-[11px] font-semibold tracking-[0.12em] uppercase">
+                Produtos
               </span>
-              <a href="#" className="hover:text-foreground transition-colors">
-                Funcionalidades
-              </a>
+              <ul className="flex flex-col gap-2.5">
+                <li>
+                  <a
+                    href="https://telefonia.pekiart.com.br"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  >
+                    telefon.ia
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://financia.pekiart.com.br"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  >
+                    financ.ia
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://meet.pekiart.com.br"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  >
+                    meet.ia
+                  </a>
+                </li>
+              </ul>
             </div>
 
-            {/* Suporte */}
+            {/* Pekiart */}
             <div className="flex flex-col gap-3">
-              <span className="text-foreground text-xs font-semibold tracking-wider uppercase">
-                Suporte
+              <span className="text-foreground text-[11px] font-semibold tracking-[0.12em] uppercase">
+                Pekiart
               </span>
-              <a
-                href="mailto:contato@pekiart.com.br"
-                className="hover:text-foreground transition-colors"
-              >
-                Contato
-              </a>
-              <a
-                href="https://wa.me/5511922060089"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-foreground transition-colors"
-              >
-                WhatsApp
-              </a>
+              <ul className="flex flex-col gap-2.5">
+                <li>
+                  <a
+                    href="mailto:contato@pekiart.com.br"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  >
+                    E-mail
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://wa.me/5511922060089"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  >
+                    WhatsApp
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://pekiart.com.br/#newsletter"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  >
+                    Newsletter
+                  </a>
+                </li>
+              </ul>
             </div>
 
             {/* Legal */}
             <div className="flex flex-col gap-3">
-              <span className="text-foreground text-xs font-semibold tracking-wider uppercase">
+              <span className="text-foreground text-[11px] font-semibold tracking-[0.12em] uppercase">
                 Legal
               </span>
-              <a href="#" className="hover:text-foreground transition-colors">
-                Política de Privacidade
-              </a>
-              <a href="#" className="hover:text-foreground transition-colors">
-                Termos de Uso
-              </a>
+              <ul className="flex flex-col gap-2.5">
+                <li>
+                  <a
+                    href="https://pekiart.com.br/privacidade"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  >
+                    Privacidade
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://pekiart.com.br/termos"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  >
+                    Termos
+                  </a>
+                </li>
+              </ul>
             </div>
           </div>
 
-          <div className="border-border border-t py-8 text-center text-xs">
-            {/* Brand (mobile only — above copyright) */}
-            <div className="mb-6 flex flex-col items-center gap-3 md:hidden">
-              <div className="flex items-center gap-3">
-                <Image src="/brand/logo.webp" alt="" width={40} height={40} />
-                <span className="font-display text-foreground text-2xl font-bold tracking-tight">
-                  Pek
-                  <span className="bg-gradient-to-r from-[var(--brand-gradient-alt-from)] via-[var(--brand-gradient-alt-via)] to-[var(--brand-gradient-alt-to)] bg-clip-text text-transparent">
-                    ia
-                  </span>
-                  rt
-                </span>
-              </div>
-              <span className="text-muted-foreground text-xs">
-                Visão estratégica. Execução precisa.
-              </span>
+          {/* Bottom bar */}
+          <div className="border-border text-muted-foreground flex flex-col items-center justify-between gap-4 border-t py-6 text-xs md:flex-row">
+            <span>
+              © {new Date().getFullYear()} Pekiart Consulting. Todos os direitos reservados.
+            </span>
+            <div className="flex items-center gap-2">
+              <a
+                href="#"
+                aria-label="LinkedIn"
+                className="border-border bg-surface-1 hover:text-foreground grid size-9 place-items-center rounded-lg border transition-colors"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="size-4" aria-hidden>
+                  <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14zM8.34 18.34V10H5.67v8.34h2.67zM7 8.67a1.54 1.54 0 1 0 0-3.07 1.54 1.54 0 0 0 0 3.07zM18.34 18.34v-4.78c0-2.48-1.34-3.63-3.13-3.63-1.44 0-2.09.79-2.45 1.35V10h-2.67v8.34h2.67v-4.66c0-.25.02-.5.09-.68.2-.5.65-1.01 1.41-1.01 1 0 1.4.76 1.4 1.87v4.48h2.68z" />
+                </svg>
+              </a>
+              <a
+                href="#"
+                aria-label="X (Twitter)"
+                className="border-border bg-surface-1 hover:text-foreground grid size-9 place-items-center rounded-lg border transition-colors"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="size-3.5" aria-hidden>
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
+                </svg>
+              </a>
+              <a
+                href="#"
+                aria-label="YouTube"
+                className="border-border bg-surface-1 hover:text-foreground grid size-9 place-items-center rounded-lg border transition-colors"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="size-4" aria-hidden>
+                  <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z" />
+                </svg>
+              </a>
             </div>
-            © {new Date().getFullYear()} Pekiart Consulting. Todos os direitos reservados.
           </div>
         </div>
       </footer>
