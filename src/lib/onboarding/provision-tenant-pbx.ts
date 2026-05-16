@@ -15,7 +15,7 @@
  * Não fica dentro de TX do portal pq é cross-DB e ESL é I/O síncrono.
  */
 import { prismaAdmin } from "@/lib/db/admin-client";
-import { createDomain } from "@/lib/fusionpbx";
+import { createDomain, sipDomainForTenant } from "@/lib/fusionpbx";
 
 export type ProvisionTenantPbxResult = {
   pbxDomainUuid: string;
@@ -32,7 +32,7 @@ export async function provisionTenantPbx(tenantId: string): Promise<ProvisionTen
     throw new Error(`Tenant ${tenantId} não encontrado`);
   }
 
-  const domainName = `${tenant.slug}.local`;
+  const domainName = sipDomainForTenant(tenant.slug);
 
   if (tenant.pbxDomainUuid) {
     return {

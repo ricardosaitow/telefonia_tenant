@@ -8,6 +8,7 @@ import { withTenantContext } from "@/lib/db/tenant-context";
 import {
   createExtension as createPbxExtension,
   deleteExtension as deletePbxExtension,
+  sipDomainForTenant,
 } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
@@ -53,7 +54,7 @@ export async function createExtensionAction(_prevState: unknown, formData: FormD
   // 1. FusionPBX
   const pbx = await createPbxExtension({
     domainUuid: tenant.pbxDomainUuid,
-    domainName: `${tenant.slug}.local`,
+    domainName: sipDomainForTenant(tenant.slug),
     extension: submission.value.extension,
     description: submission.value.displayName || undefined,
   });

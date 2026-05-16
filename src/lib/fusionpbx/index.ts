@@ -30,3 +30,4 @@ export { createExtension, deleteExtension, readExtensionPassword } from "./exten
 export type { CreateGatewayInput, CreateGatewayResult, UpdateGatewayInput } from "./gateways";
 export { createGateway, deleteGateway, updateGateway } from "./gateways";
 export { ensureProviderAclEntry } from "./provider-acl";
+export { getSipDomainSuffix, sipDomainForTenant } from "./sip-domain";

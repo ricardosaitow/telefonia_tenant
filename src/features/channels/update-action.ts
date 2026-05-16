@@ -10,6 +10,7 @@ import {
   createGateway,
   createInboundDialplan,
   ensureProviderAclEntry,
+  sipDomainForTenant,
   updateGateway,
 } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
@@ -108,7 +109,7 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
               username: v.sipUsername,
               password: v.sipPassword,
               register: v.sipRegister ?? true,
-              context: `${tenant.slug}.local`,
+              context: sipDomainForTenant(tenant.slug),
             });
             pbxGatewayUuid = gw.gatewayUuid;
 
@@ -116,7 +117,7 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
 
             await createInboundDialplan({
               domainUuid: tenant.pbxDomainUuid,
-              context: `${tenant.slug}.local`,
+              context: sipDomainForTenant(tenant.slug),
               tenantSlug: tenant.slug,
               trunkUsername: v.sipUsername,
               did: before.identificador,
