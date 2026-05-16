@@ -29,3 +29,4 @@ export type { CreateExtensionInput, CreateExtensionResult } from "./extensions";
 export { createExtension, deleteExtension, readExtensionPassword } from "./extensions";
 export type { CreateGatewayInput, CreateGatewayResult, UpdateGatewayInput } from "./gateways";
 export { createGateway, deleteGateway, updateGateway } from "./gateways";
+export { ensureProviderAclEntry } from "./provider-acl";

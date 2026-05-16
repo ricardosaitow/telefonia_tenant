@@ -120,3 +120,15 @@ export async function reloadXml(): Promise<void> {
     throw new Error(`reloadxml retornou: ${reply.trim()}`);
   }
 }
+
+/**
+ * Recarrega só ACLs (sem precisar reloadxml inteiro). Chame após inserir
+ * faixas em `v_access_control_nodes` — sem isso, INVITES de IPs novos
+ * continuam sendo rejeitados.
+ */
+export async function reloadAcl(): Promise<void> {
+  const reply = await runApi("reloadacl");
+  if (!reply.startsWith("+OK")) {
+    throw new Error(`reloadacl retornou: ${reply.trim()}`);
+  }
+}

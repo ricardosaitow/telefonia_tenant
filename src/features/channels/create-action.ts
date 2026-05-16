@@ -7,7 +7,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { recordAuditInTx } from "@/lib/audit/record";
 import { encryptCredential, isEncryptionConfigured } from "@/lib/crypto/channel-credentials";
 import { withTenantContext } from "@/lib/db/tenant-context";
-import { createGateway, createInboundDialplan } from "@/lib/fusionpbx";
+import { createGateway, createInboundDialplan, ensureProviderAclEntry } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 import { provisionWaBridge } from "@/lib/whatsapp/provision";
@@ -146,6 +146,11 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
         register: v.sipRegister ?? true,
         context: `${tenantPbx.slug}.local`,
       });
+
+      // Resolve o IP do provedor e adiciona na ACL `providers` —
+      // sem isso, INVITES inbound do provedor são rejeitados antes
+      // de entrar no dialplan.
+      await ensureProviderAclEntry(v.sipHost!);
 
       // Cria inbound dialplan automaticamente — sem isso, chamadas
       // chegam no FreeSWITCH mas não roteam pro Asterisk audiosocket.

@@ -6,7 +6,12 @@ import { redirect } from "next/navigation";
 import { recordAuditInTx } from "@/lib/audit/record";
 import { encryptCredential, isEncryptionConfigured } from "@/lib/crypto/channel-credentials";
 import { withTenantContext } from "@/lib/db/tenant-context";
-import { createGateway, createInboundDialplan, updateGateway } from "@/lib/fusionpbx";
+import {
+  createGateway,
+  createInboundDialplan,
+  ensureProviderAclEntry,
+  updateGateway,
+} from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 
@@ -106,6 +111,8 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
               context: `${tenant.slug}.local`,
             });
             pbxGatewayUuid = gw.gatewayUuid;
+
+            await ensureProviderAclEntry(v.sipHost);
 
             await createInboundDialplan({
               domainUuid: tenant.pbxDomainUuid,
