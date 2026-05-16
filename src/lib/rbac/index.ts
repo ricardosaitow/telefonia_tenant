@@ -193,7 +193,9 @@ export async function assertSessionWithTenant(): Promise<AuthContextWithTenant> 
  */
 export async function assertSessionAndMembership(): Promise<AuthContextWithMembership> {
   const ctx = await assertSessionWithTenant();
-  const logtoCtx = await logtoServer.getLogtoContext({ fetchUserInfo: false });
+  // Reusa o context cached — chamar getLogtoContext direto causa race
+  // condition (React 19 paraleliza layout + page; singleton muta storage).
+  const logtoCtx = await getCachedLogtoContext();
   const roleClaims = logtoCtx.claims?.organization_roles ?? [];
 
   // Resolver Tenant.id (UUID) → logtoOrgId pra filtrar roles (claims usam
@@ -213,6 +215,12 @@ export async function assertSessionAndMembership(): Promise<AuthContextWithMembe
     .filter((r): r is string => Boolean(r));
 
   if (rolesForActive.length === 0) {
+    console.warn("[rbac] no role claim for active tenant", {
+      activeTenantId: ctx.activeTenantId,
+      logtoOrgId,
+      claimsOrgs: logtoCtx.claims?.organizations,
+      roleClaims,
+    });
     throw new TenantNotSelectedError();
   }
 
