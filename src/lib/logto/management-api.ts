@@ -71,6 +71,12 @@ async function api<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (res.status === 204) return undefined as T;
+  // Alguns endpoints respondem 201 com body text ("Created") em vez de JSON.
+  // Só parse se Content-Type for explicitamente JSON.
+  const ctype = res.headers.get("content-type") ?? "";
+  if (!ctype.includes("application/json")) {
+    return undefined as T;
+  }
   return res.json() as Promise<T>;
 }
 
