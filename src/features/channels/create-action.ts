@@ -77,6 +77,7 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
                 sipUsername: v.sipUsername,
                 sipPassword: v.sipPassword,
                 sipRegister: v.sipRegister ?? true,
+                sipProviderCidr: v.sipProviderCidr || null,
               }
             : {}),
           ...(isEmail
@@ -149,8 +150,9 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
 
       // Resolve o IP do provedor e adiciona na ACL `providers` —
       // sem isso, INVITES inbound do provedor são rejeitados antes
-      // de entrar no dialplan.
-      await ensureProviderAclEntry(v.sipHost!);
+      // de entrar no dialplan. Usa sipProviderCidr se informado
+      // (provedores com pool dinâmico precisam do CIDR amplo).
+      await ensureProviderAclEntry(v.sipHost!, v.sipProviderCidr ?? null);
 
       // Cria inbound dialplan automaticamente — sem isso, chamadas
       // chegam no FreeSWITCH mas não roteam pro Asterisk audiosocket.

@@ -165,6 +165,7 @@ export default async function EditChannelPage({ params }: EditChannelPageProps) 
               sipTransport: channel.sipTransport,
               sipUsername: channel.sipUsername,
               sipRegister: channel.sipRegister,
+              sipProviderCidr: channel.sipProviderCidr,
               pbxGatewayUuid: channel.pbxGatewayUuid,
               smtpHost: channel.smtpHost,
               smtpPort: channel.smtpPort,

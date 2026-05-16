@@ -16,6 +16,9 @@ const sipFields = {
   sipUsername: z.string().max(255).trim().optional().or(z.literal("")),
   sipPassword: z.string().max(255).optional().or(z.literal("")),
   sipRegister: z.coerce.boolean().optional(),
+  // CIDR(s) extra do provedor (vírgula-separados). Ex: "52.0.0.0/8,54.0.0.0/8".
+  // Opcional — quando ausente, portal usa DNS lookup do sipHost.
+  sipProviderCidr: z.string().max(500).trim().optional().or(z.literal("")),
 };
 
 export const emailSecuritySchema = z.enum(["tls", "starttls", "none"]);

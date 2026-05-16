@@ -20,24 +20,27 @@ import { promises as dns } from "node:dns";
 import { fusionpbxPool } from "./client";
 import { reloadAcl } from "./esl";
 
-export async function ensureProviderAclEntry(sipHost: string): Promise<string[]> {
-  let ips: string[];
-  try {
-    ips = await dns.resolve4(sipHost);
-  } catch (err) {
-    // sipHost pode já ser um IP literal — testa antes de falhar.
-    // eslint-disable-next-line security/detect-unsafe-regex
-    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(sipHost)) {
-      ips = [sipHost];
-    } else {
-      console.error(`[fusionpbx] DNS resolve falhou pra ${sipHost}:`, err);
-      return [];
-    }
-  }
+/**
+ * Adiciona CIDR(s) à ACL `providers`.
+ *
+ * Estratégia de descoberta dos CIDRs:
+ *   1. Se `manualCidr` foi passado (do form do channel), usa ele —
+ *      provedores com pool dinâmico de IPs (Twilio, etc) precisam disso
+ *      porque DNS pontual não cobre a faixa real.
+ *   2. Senão, resolve `sipHost` via DNS A → /32 pra cada IP.
+ *   3. sipHost que já é IP literal → /32 direto.
+ *
+ * Aceita lista vírgula-separada em `manualCidr` (ex: `52.0.0.0/8,54.0.0.0/8`).
+ * IPs sem mask viram /32 automaticamente.
+ */
+export async function ensureProviderAclEntry(
+  sipHost: string,
+  manualCidr?: string | null,
+): Promise<string[]> {
+  const cidrs = await resolveCidrs(sipHost, manualCidr);
+  if (cidrs.length === 0) return [];
 
-  for (const ip of ips) {
-    const cidr = `${ip}/32`;
-    // Idempotente: NOT EXISTS antes do INSERT.
+  for (const cidr of cidrs) {
     await fusionpbxPool.query(
       `INSERT INTO v_access_control_nodes
         (access_control_node_uuid, access_control_uuid, node_type, node_cidr, node_description, insert_date)
@@ -53,11 +56,33 @@ export async function ensureProviderAclEntry(sipHost: string): Promise<string[]>
     );
   }
 
-  if (ips.length > 0) {
-    void reloadAcl().catch((err) => {
-      console.error("[fusionpbx] reloadacl falhou (best-effort):", err);
-    });
+  void reloadAcl().catch((err) => {
+    console.error("[fusionpbx] reloadacl falhou (best-effort):", err);
+  });
+
+  return cidrs;
+}
+
+async function resolveCidrs(sipHost: string, manualCidr?: string | null): Promise<string[]> {
+  if (manualCidr && manualCidr.trim().length > 0) {
+    return manualCidr
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .map((c) => (c.includes("/") ? c : `${c}/32`));
   }
 
-  return ips;
+  let ips: string[];
+  try {
+    ips = await dns.resolve4(sipHost);
+  } catch (err) {
+    // eslint-disable-next-line security/detect-unsafe-regex
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(sipHost)) {
+      ips = [sipHost];
+    } else {
+      console.error(`[fusionpbx] DNS resolve falhou pra ${sipHost}:`, err);
+      return [];
+    }
+  }
+  return ips.map((ip) => `${ip}/32`);
 }

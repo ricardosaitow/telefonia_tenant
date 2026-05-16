@@ -488,6 +488,12 @@ model Channel {
   sipUsername            String?        @map("sip_username")
   sipPassword            String?        @map("sip_password")
   sipRegister            Boolean?       @default(true) @map("sip_register")
+  // CIDR(s) extra de confiança do provedor, separados por vírgula. Ex:
+  // `52.0.0.0/8,54.0.0.0/8`. Necessário pra provedores com pool dinâmico
+  // (Twilio, etc) onde o DNS pontual não cobre a faixa real. Quando
+  // preenchido, o portal usa isso em vez do DNS lookup pra popular a
+  // ACL `providers` do FusionPBX. Aceita IPs (/32) sem mask também.
+  sipProviderCidr        String?        @map("sip_provider_cidr")
   pbxGatewayUuid         String?        @map("pbx_gateway_uuid") @db.Uuid
 
   // WhatsApp fields (populated after QR scan connection)

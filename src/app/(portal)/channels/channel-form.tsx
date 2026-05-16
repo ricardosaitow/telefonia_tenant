@@ -97,6 +97,7 @@ type ChannelFormProps = {
     sipTransport?: string | null;
     sipUsername?: string | null;
     sipRegister?: boolean | null;
+    sipProviderCidr?: string | null;
     pbxGatewayUuid?: string | null;
     smtpHost?: string | null;
     smtpPort?: number | null;
@@ -130,6 +131,7 @@ export function ChannelForm({ mode, defaultValues }: ChannelFormProps) {
           sipUsername: defaultValues.sipUsername ?? "",
           sipPassword: "",
           sipRegister: defaultValues.sipRegister ?? true,
+          sipProviderCidr: defaultValues.sipProviderCidr ?? "",
           smtpHost: defaultValues.smtpHost ?? "",
           smtpPort: defaultValues.smtpPort ?? 587,
           smtpUser: defaultValues.smtpUser ?? "",
@@ -365,6 +367,21 @@ export function ChannelForm({ mode, defaultValues }: ChannelFormProps) {
                 <p className="text-destructive text-sm">{fields.sipPassword.errors.join(" ")}</p>
               ) : null}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={fields.sipProviderCidr.id} className="flex items-center gap-1.5">
+              CIDR(s) do provedor (avançado)
+              <FieldTooltip text="Faixas IP que o provedor usa pra enviar chamadas pra você. Deixe vazio que tentamos resolver pelo Host SIP. Preencha só se o provedor usa pool dinâmico de IPs (ex: Twilio). Separe múltiplos por vírgula." />
+            </Label>
+            <Input
+              {...getInputProps(fields.sipProviderCidr, { type: "text" })}
+              key={fields.sipProviderCidr.key}
+              placeholder="52.0.0.0/8, 54.0.0.0/8  (opcional)"
+            />
+            {fields.sipProviderCidr.errors?.length ? (
+              <p className="text-destructive text-sm">{fields.sipProviderCidr.errors.join(" ")}</p>
+            ) : null}
           </div>
         </div>
       ) : null}

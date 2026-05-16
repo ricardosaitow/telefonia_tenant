@@ -34,6 +34,7 @@ export async function getChannelById(activeTenantId: string, id: string) {
         sipTransport: true,
         sipUsername: true,
         sipRegister: true,
+        sipProviderCidr: true,
         pbxGatewayUuid: true,
         // WhatsApp fields
         waBridgeUrl: true,

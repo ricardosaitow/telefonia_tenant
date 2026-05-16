@@ -112,7 +112,7 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
             });
             pbxGatewayUuid = gw.gatewayUuid;
 
-            await ensureProviderAclEntry(v.sipHost);
+            await ensureProviderAclEntry(v.sipHost, v.sipProviderCidr ?? null);
 
             await createInboundDialplan({
               domainUuid: tenant.pbxDomainUuid,
@@ -162,6 +162,7 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
                 sipUsername: v.sipUsername || undefined,
                 sipPassword: v.sipPassword || undefined,
                 sipRegister: v.sipRegister ?? true,
+                sipProviderCidr: v.sipProviderCidr || null,
                 pbxGatewayUuid,
               }
             : {}),

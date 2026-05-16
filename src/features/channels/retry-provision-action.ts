@@ -35,6 +35,7 @@ export async function retryProvisionAction(formData: FormData) {
         sipUsername: true,
         sipPassword: true,
         sipRegister: true,
+        sipProviderCidr: true,
         waContainerName: true,
       },
     }),
@@ -79,7 +80,7 @@ export async function retryProvisionAction(formData: FormData) {
         context: `${tenant.slug}.local`,
       });
 
-      await ensureProviderAclEntry(channel.sipHost!);
+      await ensureProviderAclEntry(channel.sipHost!, channel.sipProviderCidr);
 
       await createInboundDialplan({
         domainUuid: tenant.pbxDomainUuid,
