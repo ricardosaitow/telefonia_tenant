@@ -99,34 +99,54 @@ export class TenantNotSelectedError extends Error {
 export async function assertSession(): Promise<AuthContext> {
   const ctx = await getCachedLogtoContext();
   if (!ctx.isAuthenticated || !ctx.claims?.sub) {
+    console.warn("[rbac] assertSession failed isAuth", {
+      isAuth: ctx.isAuthenticated,
+      hasSub: !!ctx.claims?.sub,
+    });
     throw new UnauthenticatedError();
   }
   const claims = ctx.claims;
 
   // Shadow Account — find-or-create Account local pelo logtoSub.
-  // Garante que ctx.account.id é UUID válido pra FKs downstream
-  // (chat_participants, audit_logs, etc).
   const account = await ensureAccount(
     claims.sub,
     claims.email ?? `${claims.username ?? claims.sub}@logto.local`,
     claims.name ?? claims.username ?? "Sem nome",
   );
 
-  // Cookie armazena Tenant.id (UUID interno). Validação: o Tenant precisa
-  // ter logtoOrgId apontando pra alguma org listada nas claims do user.
   const cookieStore = await cookies();
   const activeCookie = cookieStore.get(ACTIVE_TENANT_COOKIE)?.value ?? null;
   const orgs = claims.organizations ?? [];
 
   let activeTenantId: string | null = null;
-  if (activeCookie && orgs.length > 0) {
+  let cookieReason: string | null = null;
+  if (!activeCookie) {
+    cookieReason = "no-cookie";
+  } else if (orgs.length === 0) {
+    cookieReason = "no-orgs-in-claims";
+  } else {
     const tenant = await prismaAdmin.tenant.findUnique({
       where: { id: activeCookie },
       select: { id: true, logtoOrgId: true },
     });
-    if (tenant?.logtoOrgId && orgs.includes(tenant.logtoOrgId)) {
+    if (!tenant) {
+      cookieReason = "tenant-not-found";
+    } else if (!tenant.logtoOrgId) {
+      cookieReason = "tenant-without-logto-org";
+    } else if (!orgs.includes(tenant.logtoOrgId)) {
+      cookieReason = "logto-org-not-in-claims";
+    } else {
       activeTenantId = tenant.id;
     }
+  }
+
+  if (!activeTenantId && cookieReason) {
+    console.warn("[rbac] activeTenantId=null", {
+      reason: cookieReason,
+      cookie: activeCookie,
+      orgs,
+      sub: claims.sub,
+    });
   }
 
   return {
