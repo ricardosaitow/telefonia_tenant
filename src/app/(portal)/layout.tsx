@@ -23,7 +23,18 @@ export default async function PortalLayout({ children }: Readonly<{ children: Re
   try {
     ctx = await assertSessionAndMembership();
   } catch (err) {
-    if (err instanceof TenantNotSelectedError) redirect("/tenants");
+    if (err instanceof TenantNotSelectedError) {
+      console.warn("[layout] TenantNotSelectedError → /tenants", {
+        name: (err as Error).name,
+        msg: (err as Error).message,
+      });
+      redirect("/tenants");
+    }
+
+    console.warn("[layout] auth error → /login", {
+      name: (err as Error).name,
+      msg: (err as Error).message,
+    });
     redirect("/login");
   }
 
@@ -35,7 +46,12 @@ export default async function PortalLayout({ children }: Readonly<{ children: Re
       select: { slug: true, nomeFantasia: true },
     }),
   );
-  if (!tenant) redirect("/tenants");
+  if (!tenant) {
+    console.warn("[layout] tenant query null → /tenants", {
+      activeTenantId: ctx.activeTenantId,
+    });
+    redirect("/tenants");
+  }
 
   // Compute sidebar badges (async, parallel)
   const chatUnread = can(ctx.membership.globalRole, "chat:view")
