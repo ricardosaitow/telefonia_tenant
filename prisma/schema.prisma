@@ -102,6 +102,14 @@ model Tenant {
   planSlug              String       @default("demo") @map("plan_slug")
   trialEndsAt           DateTime?    @map("trial_ends_at") @db.Timestamptz(6)
 
+  // Horário comercial — usado pelas tools do bridge-ia (Helena) pra
+  // get_business_status, register_callback, etc. business_days segue
+  // ISO weekday (1=segunda ... 7=domingo). Default: seg-sex 8h-18h BRT.
+  businessOpenHour      Int          @default(8) @map("business_open_hour")
+  businessCloseHour     Int          @default(18) @map("business_close_hour")
+  businessDays          Int[]        @default([1, 2, 3, 4, 5]) @map("business_days")
+  timezone              String       @default("America/Sao_Paulo")
+
   // Stripe — billing per-tenant (1 Stripe Customer por Tenant).
   // Populated quando user passa pelo checkout. Antes disso, ficam null e
   // o tenant fica em trial (gate `requireActiveSubscription` permite trial).
