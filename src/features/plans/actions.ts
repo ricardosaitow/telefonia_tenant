@@ -36,6 +36,13 @@ export async function choosePlanAction(_prevState: unknown, formData: FormData) 
     redirect("/tenants");
   }
 
+  // 0. Salvar o nome do user admin no Account local. Logto só coletou email
+  //    no signup; nome é informado aqui no choose-plan e fica owned pelo portal.
+  await prismaAdmin.account.update({
+    where: { id: ctx.account.id },
+    data: { nome: submission.value.accountName },
+  });
+
   const plan = PLANS[submission.value.planSlug];
   const trialEndsAt = plan.trialDays > 0 ? addDays(new Date(), plan.trialDays) : undefined;
 

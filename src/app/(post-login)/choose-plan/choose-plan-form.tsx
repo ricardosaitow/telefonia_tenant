@@ -87,6 +87,10 @@ export function ChoosePlanForm({ accountName }: { accountName: string }) {
   const [lastResult, action, pending] = useActionState(choosePlanAction, undefined);
   const [selectedPlan, setSelectedPlan] = useState<PlanSlug>("demo");
 
+  // Se Account.nome ainda for o default "Sem nome" (Logto não coleta nome
+  // no signup), começa vazio pro user preencher. Senão pre-preenche.
+  const initialAccountName = accountName && accountName !== "Sem nome" ? accountName : "";
+
   const [form, fields] = useForm({
     lastResult,
     onValidate({ formData }) {
@@ -94,6 +98,7 @@ export function ChoosePlanForm({ accountName }: { accountName: string }) {
     },
     shouldValidate: "onBlur",
     shouldRevalidate: "onInput",
+    defaultValue: { accountName: initialAccountName },
   });
 
   return (
@@ -104,25 +109,42 @@ export function ChoosePlanForm({ accountName }: { accountName: string }) {
         </Alert>
       ) : null}
 
-      {/* Nome da empresa — centralizado, com contexto */}
-      <div className="mx-auto flex w-full max-w-md flex-col gap-3">
-        <Label htmlFor={fields.nomeTenant.id} className="text-center text-sm font-medium">
-          Como se chama sua empresa, {accountName.split(" ")[0]}?
-        </Label>
-        <Input
-          {...getInputProps(fields.nomeTenant, { type: "text" })}
-          key={fields.nomeTenant.key}
-          required={false}
-          placeholder="Ex: Pekiart Consulting"
-          autoComplete="organization"
-          autoFocus
-          className="h-12 text-center text-base"
-        />
-        {fields.nomeTenant.errors?.length ? (
-          <p className="text-destructive text-center text-sm">
-            {fields.nomeTenant.errors.join(" ")}
-          </p>
-        ) : null}
+      {/* Identificação — seu nome + nome da empresa */}
+      <div className="mx-auto flex w-full max-w-md flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={fields.accountName.id} className="text-sm font-medium">
+            Qual o seu nome?
+          </Label>
+          <Input
+            {...getInputProps(fields.accountName, { type: "text" })}
+            key={fields.accountName.key}
+            required
+            placeholder="Ex: Ricardo Saitow"
+            autoComplete="name"
+            autoFocus
+            className="h-12 text-base"
+          />
+          {fields.accountName.errors?.length ? (
+            <p className="text-destructive text-sm">{fields.accountName.errors.join(" ")}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={fields.nomeTenant.id} className="text-sm font-medium">
+            Como se chama sua empresa?
+          </Label>
+          <Input
+            {...getInputProps(fields.nomeTenant, { type: "text" })}
+            key={fields.nomeTenant.key}
+            required
+            placeholder="Ex: Pekiart Consulting"
+            autoComplete="organization"
+            className="h-12 text-base"
+          />
+          {fields.nomeTenant.errors?.length ? (
+            <p className="text-destructive text-sm">{fields.nomeTenant.errors.join(" ")}</p>
+          ) : null}
+        </div>
       </div>
 
       <input type="hidden" name="planSlug" value={selectedPlan} />

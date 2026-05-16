@@ -40,10 +40,14 @@ export const ensureAccount = cache(async (logtoSub: string, email: string, nome:
   });
 
   if (existing) {
-    if (existing.email !== email || existing.nome !== nome) {
+    // Email é autoritativo do Logto (IdP); nome é owned pelo portal — user
+    // edita em /account e /choose-plan grava no signup. Não sobrescrever
+    // nome aqui, senão toda navegação reverte pra `claims.name` (que é
+    // "Sem nome" quando user nunca setou display name no Logto).
+    if (existing.email !== email) {
       await prismaAdmin.account.update({
         where: { id: existing.id },
-        data: { email, nome },
+        data: { email },
       });
     }
     return existing;

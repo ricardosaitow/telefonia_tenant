@@ -98,10 +98,21 @@ model Tenant {
   status                TenantStatus @default(trial)
 
   // Plano ativo do tenant — slug de referência (constante em código, não FK).
-  // Default "demo" pra manter compatibilidade. Quando billing vier, migramos
-  // pra model Subscription (avaliação futura).
+  // Default "demo" pra manter compatibilidade.
   planSlug              String       @default("demo") @map("plan_slug")
   trialEndsAt           DateTime?    @map("trial_ends_at") @db.Timestamptz(6)
+
+  // Stripe — billing per-tenant (1 Stripe Customer por Tenant).
+  // Populated quando user passa pelo checkout. Antes disso, ficam null e
+  // o tenant fica em trial (gate `requireActiveSubscription` permite trial).
+  // subscriptionStatus reflete o `customer.subscription.status` do Stripe
+  // (trialing | active | past_due | canceled | unpaid | incomplete).
+  // currentPeriodEnd vem do invoice/subscription do Stripe e bate com
+  // trialEndsAt durante trial.
+  stripeCustomerId      String?      @unique @map("stripe_customer_id")
+  stripeSubscriptionId  String?      @unique @map("stripe_subscription_id")
+  subscriptionStatus    String?      @map("subscription_status")
+  currentPeriodEnd      DateTime?    @map("current_period_end") @db.Timestamptz(6)
 
   // FK pra v_domains.domain_uuid no Postgres do FusionPBX (cross-DB, sem FK
   // formal). Nullable: tenant pode existir antes da integração ser provisionada.
