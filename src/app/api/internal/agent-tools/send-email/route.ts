@@ -89,11 +89,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "credential_decrypt_failed" }, { status: 500 });
   }
 
+  // Porta 465 = TLS implícito (secure=true); 587 = STARTTLS (secure=false).
+  // Alguns providers (Hostinger) cadastram security='tls' mesmo em 465 — nesse
+  // caso a porta manda. Sem isso, nodemailer trava em handshake.
+  const port = channel.smtpPort ?? 587;
+  const secureImplicit = port === 465 || channel.smtpSecurity === "ssl";
   const transporter = nodemailer.createTransport({
     host: channel.smtpHost,
-    port: channel.smtpPort ?? 587,
-    secure: channel.smtpSecurity === "ssl",
+    port,
+    secure: secureImplicit,
     auth: { user: channel.smtpUser, pass: smtpPass },
+    // Timeouts curtos pra não travar a Helena enquanto SMTP responde.
+    connectionTimeout: 5_000,
+    greetingTimeout: 5_000,
+    socketTimeout: 8_000,
   });
 
   try {
