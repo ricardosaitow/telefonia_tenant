@@ -39,7 +39,7 @@ export async function chooseTenantAction(formData: FormData) {
   if (!tenant?.logtoOrgId || !userOrgIds.includes(tenant.logtoOrgId)) {
     redirect("/tenants");
   }
-  if (tenant.status !== "active") {
+  if (tenant.status !== "active" && tenant.status !== "trial") {
     redirect("/tenants");
   }
 
