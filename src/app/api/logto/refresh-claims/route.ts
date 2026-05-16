@@ -27,8 +27,11 @@ export async function GET(req: NextRequest) {
   // múltiplos cookies (sessão, nonce, etc) e o nome exato muda por versão.
   const store = await cookies();
   const all = store.getAll();
+  // Usa LOGTO_BASE_URL pra evitar pegar Host interno do container (0.0.0.0:5000)
+  // quando nginx não passa X-Forwarded-Host.
+  const baseUrl = process.env.LOGTO_BASE_URL ?? new URL(req.url).origin;
   const res = NextResponse.redirect(
-    new URL(`/api/logto/sign-in?redirectTo=${encodeURIComponent(redirectTo)}`, req.url),
+    new URL(`/api/logto/sign-in?redirectTo=${encodeURIComponent(redirectTo)}`, baseUrl),
   );
 
   for (const cookie of all) {
