@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { recordAuditInTx } from "@/lib/audit/record";
 import { encryptCredential, isEncryptionConfigured } from "@/lib/crypto/channel-credentials";
 import { withTenantContext } from "@/lib/db/tenant-context";
-import { createGateway, updateGateway } from "@/lib/fusionpbx";
+import { createGateway, createInboundDialplan, updateGateway } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 
@@ -106,6 +106,14 @@ export async function updateChannelAction(_prevState: unknown, formData: FormDat
               context: `${tenant.slug}.local`,
             });
             pbxGatewayUuid = gw.gatewayUuid;
+
+            await createInboundDialplan({
+              domainUuid: tenant.pbxDomainUuid,
+              context: `${tenant.slug}.local`,
+              tenantSlug: tenant.slug,
+              trunkUsername: v.sipUsername,
+              did: before.identificador,
+            });
           } catch (err) {
             throw new GatewayError(
               `Erro ao provisionar gateway SIP no PBX: ${err instanceof Error ? err.message : "erro desconhecido"}`,

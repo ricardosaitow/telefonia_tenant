@@ -20,6 +20,8 @@
  * `v_extensions.password` (FusionPBX exige; sem versão hash). Quando
  * Infisical for ligado, mover pra `passwordRef` real e ler via secret API.
  */
+export type { CreateInboundDialplanInput } from "./dialplans";
+export { createInboundDialplan, deleteInboundDialplan } from "./dialplans";
 export type { CreateDomainInput, CreateDomainResult } from "./domains";
 export { createDomain, deleteDomain } from "./domains";
 export { reloadXml } from "./esl";

@@ -7,7 +7,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { recordAuditInTx } from "@/lib/audit/record";
 import { encryptCredential, isEncryptionConfigured } from "@/lib/crypto/channel-credentials";
 import { withTenantContext } from "@/lib/db/tenant-context";
-import { createGateway } from "@/lib/fusionpbx";
+import { createGateway, createInboundDialplan } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 import { provisionWaBridge } from "@/lib/whatsapp/provision";
@@ -145,6 +145,16 @@ export async function createChannelAction(_prevState: unknown, formData: FormDat
         password: v.sipPassword!,
         register: v.sipRegister ?? true,
         context: `${tenantPbx.slug}.local`,
+      });
+
+      // Cria inbound dialplan automaticamente — sem isso, chamadas
+      // chegam no FreeSWITCH mas não roteam pro Asterisk audiosocket.
+      await createInboundDialplan({
+        domainUuid: tenantPbx.pbxDomainUuid,
+        context: `${tenantPbx.slug}.local`,
+        tenantSlug: tenantPbx.slug,
+        trunkUsername: v.sipUsername!,
+        did: v.identificador!,
       });
 
       await withTenantContext(ctx.activeTenantId, (tx) =>

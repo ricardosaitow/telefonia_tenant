@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { recordAuditInTx } from "@/lib/audit/record";
 import { withTenantContext } from "@/lib/db/tenant-context";
-import { createGateway } from "@/lib/fusionpbx";
+import { createGateway, createInboundDialplan } from "@/lib/fusionpbx";
 import { assertSessionAndMembership } from "@/lib/rbac";
 import { assertCan } from "@/lib/rbac/permissions";
 import { destroyWaBridge, provisionWaBridge } from "@/lib/whatsapp/provision";
@@ -28,6 +28,7 @@ export async function retryProvisionAction(formData: FormData) {
         tipo: true,
         status: true,
         nomeAmigavel: true,
+        identificador: true,
         sipHost: true,
         sipPort: true,
         sipTransport: true,
@@ -76,6 +77,14 @@ export async function retryProvisionAction(formData: FormData) {
         password: channel.sipPassword!,
         register: channel.sipRegister ?? true,
         context: `${tenant.slug}.local`,
+      });
+
+      await createInboundDialplan({
+        domainUuid: tenant.pbxDomainUuid,
+        context: `${tenant.slug}.local`,
+        tenantSlug: tenant.slug,
+        trunkUsername: channel.sipUsername!,
+        did: channel.identificador,
       });
 
       await withTenantContext(ctx.activeTenantId, async (tx) => {

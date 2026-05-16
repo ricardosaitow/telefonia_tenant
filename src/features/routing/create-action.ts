@@ -37,6 +37,21 @@ export async function createRoutingRuleAction(formData: FormData) {
         targetAgentId: parsed.data.targetType === "agent" ? parsed.data.targetId : null,
       },
     });
+
+    // Primeira rule do channel vira default automaticamente — sem isso o
+    // bridge-ia não acha o agente publicado e cai no fallback. User pode
+    // mudar depois via setDefaultRoutingRuleAction.
+    const channel = await tx.channel.findUnique({
+      where: { id: parsed.data.channelId },
+      select: { defaultRoutingRuleId: true },
+    });
+    if (!channel?.defaultRoutingRuleId) {
+      await tx.channel.update({
+        where: { id: parsed.data.channelId },
+        data: { defaultRoutingRuleId: created.id },
+      });
+    }
+
     await recordAuditInTx(
       tx,
       {
