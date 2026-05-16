@@ -30,7 +30,7 @@ export const PLANS = {
   pro: {
     slug: "pro",
     name: "Pro",
-    price: 900_00,
+    price: 699_00,
     trialDays: 0,
     limits: {
       agents: 3,
@@ -42,8 +42,8 @@ export const PLANS = {
     },
     channels: ["voice", "whatsapp", "email"],
     integrations: true,
-    cta: "Assinar",
-    available: false,
+    cta: "Assinar Pro",
+    available: true,
   },
   enterprise: {
     slug: "enterprise",

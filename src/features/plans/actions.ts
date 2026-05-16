@@ -10,17 +10,21 @@ import { createOrganizationWithOwner } from "@/lib/logto/management-api";
 import { createTenantWithOwnerInTx } from "@/lib/onboarding/create-tenant";
 import { provisionTenantPbx } from "@/lib/onboarding/provision-tenant-pbx";
 import { assertSession, getOrganizationIds } from "@/lib/rbac";
+import { createSubscriptionCheckoutSession } from "@/lib/stripe/checkout";
+import { isStripeConfigured } from "@/lib/stripe/client";
+import { ensureStripeCustomer } from "@/lib/stripe/customer";
+import { getPortalPlanConfig } from "@/lib/stripe/plans";
 
 import { PLANS } from "./constants";
 import { choosePlanSchema } from "./schemas";
 
 /**
- * Cria Tenant com plano escolhido. Atualmente só "demo" (trial 3 dias)
- * funciona. Pro e Enterprise são mock (schema rejeita outros slugs).
+ * Cria Tenant com plano escolhido. Demo é trial 3 dias sem cartão (sem
+ * Stripe). Pro vai pro Stripe Checkout — Tenant é criado em status='trial'
+ * sem trialEndsAt; webhook flipa pra 'active' quando pagamento completa.
  *
  * PBX provisioning é fire-and-forget: FusionPBX fora do ar não bloqueia
- * a criação do tenant. Falha deixa Tenant.pbxDomainUuid=null; UI de
- * /extensions mostra empty state. provisionTenantPbx é idempotente.
+ * a criação do tenant.
  */
 export async function choosePlanAction(_prevState: unknown, formData: FormData) {
   const submission = parseWithZod(formData, { schema: choosePlanSchema });
@@ -50,7 +54,7 @@ export async function choosePlanAction(_prevState: unknown, formData: FormData) 
   //    O claim `organizations` no JWT só vai aparecer no PRÓXIMO sign-in/refresh.
   const logtoOrg = await createOrganizationWithOwner({
     name: submission.value.nomeTenant,
-    logtoUserId: ctx.sessionToken, // sessionToken é o claims.sub do Logto
+    logtoUserId: ctx.sessionToken,
     roleName: "owner",
   });
 
@@ -65,7 +69,7 @@ export async function choosePlanAction(_prevState: unknown, formData: FormData) 
     });
   });
 
-  // PBX provisioning — fire-and-forget (mesmo padrão do signup).
+  // PBX provisioning — fire-and-forget.
   void provisionTenantPbx(tenant.id).catch((err) => {
     console.error(
       "[choose-plan] provision PBX falhou pra tenant %s — pbxDomainUuid fica null:",
@@ -76,10 +80,38 @@ export async function choosePlanAction(_prevState: unknown, formData: FormData) 
 
   await setActiveTenant(ctx.sessionToken, tenant.id);
 
-  // 3. Força re-sign-in pra renovar o ID token com o claim `organizations` atualizado.
-  //    Sem isso, o user fica preso porque `claims.organizations` ainda vem vazio
-  //    (claim foi adicionada no Logto APÓS o login atual). O endpoint
-  //    `/api/logto/refresh-claims` limpa o cookie local e dispara um novo OIDC
-  //    flow — como a sessão Logto upstream ainda é válida, o flow é silent.
+  // 3a. Pro → Stripe Checkout
+  if (submission.value.planSlug === "pro") {
+    if (!isStripeConfigured()) {
+      return submission.reply({
+        formErrors: ["Stripe não configurado. Contate o suporte."],
+      });
+    }
+    const planConfig = getPortalPlanConfig("pro");
+    if (!planConfig.priceId) {
+      return submission.reply({
+        formErrors: ["Plano Pro ainda não disponível pra assinatura."],
+      });
+    }
+
+    const { stripeCustomerId } = await ensureStripeCustomer({
+      tenantId: tenant.id,
+      email: ctx.account.email,
+      name: submission.value.accountName,
+    });
+
+    const baseUrl = process.env.PORTAL_BASE_URL ?? "http://localhost:5000";
+    const checkout = await createSubscriptionCheckoutSession({
+      tenantId: tenant.id,
+      stripeCustomerId,
+      priceId: planConfig.priceId,
+      successUrl: `${baseUrl}/api/stripe/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${baseUrl}/api/stripe/checkout/return?canceled=1`,
+    });
+
+    redirect(checkout.url);
+  }
+
+  // 3b. Demo → entra direto via refresh-claims (sem Stripe).
   redirect("/api/logto/refresh-claims?redirectTo=/dashboard");
 }

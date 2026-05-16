@@ -268,14 +268,22 @@ export function ChoosePlanForm({ accountName }: { accountName: string }) {
                       </a>
                     </Button>
                   ) : (
-                    <div className="flex flex-col gap-2">
-                      <Button variant="outline" size="lg" className="w-full" disabled>
-                        Assinar Pro
-                      </Button>
-                      <p className="text-muted-foreground text-center text-xs">
-                        Disponível em breve
-                      </p>
-                    </div>
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full"
+                      disabled={pending}
+                      onClick={() => setSelectedPlan("pro")}
+                    >
+                      {pending && isSelected ? (
+                        "Indo pro checkout..."
+                      ) : (
+                        <>
+                          Assinar Pro
+                          <ArrowRight className="size-4" />
+                        </>
+                      )}
+                    </Button>
                   )}
                 </div>
               </div>
