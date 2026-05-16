@@ -80,6 +80,28 @@ export type LogtoOrganization = {
   description?: string;
 };
 
+type LogtoOrganizationRole = {
+  id: string;
+  name: string;
+};
+
+/** Cache de role IDs por nome (1 lookup por instância — roles não mudam). */
+let cachedRoles: Map<string, string> | null = null;
+
+async function getOrganizationRoleIdByName(roleName: string): Promise<string> {
+  if (!cachedRoles) {
+    const roles = await api<LogtoOrganizationRole[]>("/organization-roles");
+    cachedRoles = new Map(roles.map((r) => [r.name, r.id]));
+  }
+  const id = cachedRoles.get(roleName);
+  if (!id) {
+    throw new Error(
+      `Organization role "${roleName}" não existe no template Logto. Crie em Authorization → Organization template → Roles.`,
+    );
+  }
+  return id;
+}
+
 /**
  * Cria Organization no Logto, adiciona o user como member e atribui role.
  *
@@ -93,7 +115,8 @@ export async function createOrganizationWithOwner(args: {
   logtoUserId: string;
   roleName?: string;
 }): Promise<LogtoOrganization> {
-  const role = args.roleName ?? "owner";
+  const roleName = args.roleName ?? "owner";
+  const roleId = await getOrganizationRoleIdByName(roleName);
 
   const org = await api<LogtoOrganization>("/organizations", {
     method: "POST",
@@ -109,7 +132,7 @@ export async function createOrganizationWithOwner(args: {
     method: "POST",
     body: JSON.stringify({
       userIds: [args.logtoUserId],
-      organizationRoleNames: [role],
+      organizationRoleIds: [roleId],
     }),
   });
 
