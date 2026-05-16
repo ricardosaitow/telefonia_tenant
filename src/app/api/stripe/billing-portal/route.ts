@@ -17,11 +17,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     where: { id: ctx.activeTenantId },
     select: { stripeCustomerId: true },
   });
+  const baseUrl = process.env.PORTAL_BASE_URL ?? new URL(req.url).origin;
   if (!tenant?.stripeCustomerId) {
-    return NextResponse.redirect(new URL("/settings?error=no_billing", req.url));
+    return NextResponse.redirect(`${baseUrl}/settings?error=no_billing`);
   }
 
-  const baseUrl = process.env.PORTAL_BASE_URL ?? new URL(req.url).origin;
   const { url } = await createBillingPortalSession({
     stripeCustomerId: tenant.stripeCustomerId,
     returnUrl: `${baseUrl}/settings`,
