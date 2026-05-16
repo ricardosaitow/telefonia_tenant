@@ -7,6 +7,8 @@ export type CreateTenantWithOwnerInput = {
   locale?: string | undefined;
   planSlug?: string | undefined;
   trialEndsAt?: Date | undefined;
+  /** ID da Organization no Logto — bridge UUID local ↔ logtoOrgId. */
+  logtoOrgId?: string | undefined;
 };
 
 /**
@@ -31,6 +33,7 @@ export async function createTenantWithOwnerInTx(
       status: "trial",
       planSlug: input.planSlug ?? "demo",
       trialEndsAt: input.trialEndsAt ?? null,
+      logtoOrgId: input.logtoOrgId ?? null,
     },
   });
 
