@@ -80,7 +80,34 @@ export async function choosePlanAction(_prevState: unknown, formData: FormData) 
 
   await setActiveTenant(ctx.sessionToken, tenant.id);
 
-  // 3a. Pro → Stripe Checkout
+  // 3a. Pro com Pix → Cora invoice + redirect pra QR code page
+  if (submission.value.planSlug === "pro" && submission.value.paymentMethod === "pix") {
+    const { createCoraPixInvoiceForTenant } = await import("@/lib/cora/billing");
+    const { isCoraConfigured } = await import("@/lib/cora/client");
+
+    if (!isCoraConfigured()) {
+      return submission.reply({
+        formErrors: ["Pix (Cora) não configurado. Contate o suporte."],
+      });
+    }
+
+    const invoice = await createCoraPixInvoiceForTenant({
+      tenantId: tenant.id,
+      amountCents: 69900, // R$ 699 — alinhado com plano Pro Stripe
+      customer: {
+        name: submission.value.accountName,
+        email: ctx.account.email,
+        document: { identity: "00000000000", type: "CPF" }, // TODO: pegar do form
+      },
+      serviceName: "Telefonia.IA Pro — Mensal",
+      serviceDescription: `Assinatura mensal Pro pra ${submission.value.nomeTenant}`,
+      dueInDays: 3, // 3 dias pra pagar
+    });
+
+    redirect(`/pix-checkout/${invoice.invoiceId}`);
+  }
+
+  // 3b. Pro com Stripe → Stripe Checkout
   if (submission.value.planSlug === "pro") {
     if (!isStripeConfigured()) {
       return submission.reply({
@@ -112,6 +139,6 @@ export async function choosePlanAction(_prevState: unknown, formData: FormData) 
     redirect(checkout.url);
   }
 
-  // 3b. Demo → entra direto via refresh-claims (sem Stripe).
+  // 3c. Demo → entra direto via refresh-claims (sem Stripe nem Cora).
   redirect("/api/logto/refresh-claims?redirectTo=/dashboard");
 }

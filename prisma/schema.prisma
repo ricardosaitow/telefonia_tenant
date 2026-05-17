@@ -156,6 +156,7 @@ model Tenant {
   chatParticipants      ChatParticipant[]
   chatNotes             ChatNote[]
   quickReplies          QuickReply[]
+  coraInvoices          CoraInvoice[]
 
   @@map("tenants")
 }
@@ -1603,4 +1604,46 @@ model StripeWebhookEvent {
 
   @@index([processedAt])
   @@map("stripe_webhook_events")
+}
+
+// ---------------------------------------------------------------------------
+// CoraInvoice — histórico de cobranças Pix Cora por Tenant. Cora não tem
+// subscription engine; cada ciclo (mensal) gera uma invoice nova. Quando
+// pago via webhook, atualiza row e marca tenant.subscriptionStatus.
+// ---------------------------------------------------------------------------
+model CoraInvoice {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  coraInvoiceId   String   @unique @map("cora_invoice_id") // ex "inv_RJ4A2B..."
+  status          String   @default("DRAFT") // DRAFT | OPEN | PAID | EXPIRED | CANCELED
+  amountCents     Int      @map("amount_cents")
+  paidAmountCents Int      @default(0) @map("paid_amount_cents")
+  pixEmv          String?  @map("pix_emv") @db.Text
+  paidAt          DateTime? @map("paid_at") @db.Timestamptz(6)
+  dueDate         DateTime @map("due_date") @db.Timestamptz(6)
+  // Período de cobertura (Pekiart: 1 mês a partir do paid_at)
+  periodStart     DateTime? @map("period_start") @db.Timestamptz(6)
+  periodEnd       DateTime? @map("period_end") @db.Timestamptz(6)
+  rawPayload      Json     @default("{}") @map("raw_payload")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("cora_invoices")
+}
+
+// ---------------------------------------------------------------------------
+// CoraWebhookEvent — dedup table pra webhooks da Cora. Idempotência via
+// event.id (campo da Cora) ou hash do payload se Cora não enviar id.
+// ---------------------------------------------------------------------------
+model CoraWebhookEvent {
+  eventId     String   @id @map("event_id") // event.id da Cora, ou hash payload
+  trigger     String   // ex "invoice.paid"
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(6)
+
+  @@index([processedAt])
+  @@map("cora_webhook_events")
 }
