@@ -35,9 +35,11 @@ function mapStripeStatusToTenantStatus(stripeStatus: string): TenantStatus | nul
     case "canceled":
       return TenantStatus.canceled;
     case "incomplete":
-    case "incomplete_expired":
-      // Não mexe — Tenant fica como estava (pode ser que checkout não completou).
+      // Aguardando 1º pagamento (24h grace) — não muda status local.
       return null;
+    case "incomplete_expired":
+      // Passou 24h sem pagar — checkout não vai mais ativar. Vira canceled.
+      return TenantStatus.canceled;
     case "paused":
       return TenantStatus.suspended;
     default:
@@ -70,9 +72,30 @@ async function applySubscriptionToTenant(subscription: Stripe.Subscription): Pro
 }
 
 /**
- * Despacha evento. Idempotente — re-receber mesmo event_id não causa erro.
+ * Despacha evento. Idempotência garantida via tabela stripe_webhook_events:
+ * inserimos o event.id primeiro com onConflict-doNothing — se já existia,
+ * é retry do Stripe e a gente pula.
  */
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
+  // Dedup. Prisma 7 não tem ON CONFLICT direto; emulamos via tentar criar
+  // e tratar P2002 (unique violation) como "já processado".
+  try {
+    await prismaAdmin.stripeWebhookEvent.create({
+      data: { eventId: event.id, eventType: event.type },
+    });
+  } catch (err) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code === "P2002"
+    ) {
+      console.log("[stripe-webhook] event %s já processado, skipping", event.id);
+      return;
+    }
+    throw err;
+  }
+
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object;

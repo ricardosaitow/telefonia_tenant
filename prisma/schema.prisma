@@ -1590,3 +1590,17 @@ model QuickReply {
   @@index([tenantId])
   @@map("quick_replies")
 }
+
+// ---------------------------------------------------------------------------
+// StripeWebhookEvent — dedup table pra idempotência de webhooks Stripe.
+// Antes de processar um event, webhook handler insere o event.id; se duplica
+// constraint, é retry e a gente skipa. Não tem tenantId (global, infra-level).
+// ---------------------------------------------------------------------------
+model StripeWebhookEvent {
+  eventId     String   @id @map("event_id")
+  eventType   String   @map("event_type")
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(6)
+
+  @@index([processedAt])
+  @@map("stripe_webhook_events")
+}
