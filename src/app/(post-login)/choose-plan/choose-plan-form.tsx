@@ -86,6 +86,7 @@ function formatPrice(price: number | null): { main: string; decimal?: string; su
 export function ChoosePlanForm({ accountName }: { accountName: string }) {
   const [lastResult, action, pending] = useActionState(choosePlanAction, undefined);
   const [selectedPlan, setSelectedPlan] = useState<PlanSlug>("demo");
+  const [paymentMethod, setPaymentMethod] = useState<"stripe" | "pix">("stripe");
 
   // Se Account.nome ainda for o default "Sem nome" (Logto não coleta nome
   // no signup), começa vazio pro user preencher. Senão pre-preenche.
@@ -148,6 +149,7 @@ export function ChoosePlanForm({ accountName }: { accountName: string }) {
       </div>
 
       <input type="hidden" name="planSlug" value={selectedPlan} />
+      <input type="hidden" name="paymentMethod" value={paymentMethod} />
 
       {/* Cards dos planos */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -268,22 +270,44 @@ export function ChoosePlanForm({ accountName }: { accountName: string }) {
                       </a>
                     </Button>
                   ) : (
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="w-full"
-                      disabled={pending}
-                      onClick={() => setSelectedPlan("pro")}
-                    >
-                      {pending && isSelected ? (
-                        "Indo pro checkout..."
-                      ) : (
-                        <>
-                          Assinar Pro
-                          <ArrowRight className="size-4" />
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full"
+                        disabled={pending}
+                        onClick={() => {
+                          setSelectedPlan("pro");
+                          setPaymentMethod("stripe");
+                        }}
+                      >
+                        {pending && isSelected && paymentMethod === "stripe" ? (
+                          "Indo pro checkout..."
+                        ) : (
+                          <>
+                            Pagar com cartão
+                            <ArrowRight className="size-4" />
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        type="submit"
+                        size="lg"
+                        variant="outline"
+                        className="w-full"
+                        disabled={pending}
+                        onClick={() => {
+                          setSelectedPlan("pro");
+                          setPaymentMethod("pix");
+                        }}
+                      >
+                        {pending && isSelected && paymentMethod === "pix" ? (
+                          "Gerando Pix..."
+                        ) : (
+                          <>Pagar com Pix</>
+                        )}
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
